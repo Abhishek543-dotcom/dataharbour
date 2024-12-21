@@ -1,0 +1,292 @@
+/* General Styles */
+body {
+    font-family: sans-serif;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: #f8f9fa; /* Default background */
+}
+
+.header {
+    background-color: #11283a;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header .logo {
+    font-weight: bold;
+}
+
+.header .profile-button {
+    background-color: transparent;
+    color: white;
+    border: 1px solid white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.sidebar {
+    background-color: #11283a;
+    width: 200px;
+    color: white;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar a {
+    color: white;
+    text-decoration: none;
+    margin-bottom: 10px;
+    display: block;
+    padding: 5px;
+}
+
+.sidebar a:hover {
+    background-color: #21415d;
+}
+
+.sidebar .active {
+    background-color: #21415d;
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.collapse-menu {
+    margin-top: auto; /* Push to the bottom of the sidebar */
+    cursor: pointer;
+}
+
+.container {
+    display: flex;
+    flex-grow: 1;
+}
+
+
+/* compute.html Specific Styles */
+.compute-tabs {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.compute-tabs button {
+    background-color: transparent;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: #555;
+}
+
+.compute-tabs button.active {
+    border-bottom: 2px solid #007bff;
+    color: black;
+    font-weight: bold;
+}
+
+.search-create {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.search-create input {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+.search-create button {
+    background-color: #007bff;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+th, td {
+    border: 1px solid #dee2e6;
+    padding: 8px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+th {
+    background-color: #e9ecef;
+    font-weight: 500;
+}
+
+.cluster-name {
+    cursor: pointer;
+    color: #007bff;
+    text-decoration: none;
+}
+
+.cluster-details {
+    border: 1px solid #dee2e6;
+    padding: 20px;
+    margin-top: 20px;
+    display: none;
+}
+
+.cluster-details.show {
+    display: block;
+}
+
+.cluster-details h2 {
+    margin-top: 0;
+}
+
+.detail-section {
+    border: 1px solid #dee2e6;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.detail-section h3 {
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+.detail-section p {
+    margin: 0;
+}
+
+.pagination {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    color: #6c757d;
+}
+
+.pagination select {
+    margin-left: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.options-icon {
+    cursor: pointer;
+    text-align: center;
+}
+
+
+/* workspace.html Specific Styles */
+.breadcrumbs {
+    margin-bottom: 20px;
+    color: #6c757d;
+}
+
+.breadcrumbs span {
+    margin-right: 5px;
+}
+
+.breadcrumbs a {
+    text-decoration: none;
+    color: #007bff;
+}
+
+.workspace-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.workspace-actions .create-btn {
+    background-color: #007bff;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.table-container {
+    overflow-x: auto;
+}
+
+.options-icon {
+    cursor: pointer;
+}
+
+
+/* workflows.html Specific Styles */
+.job-tabs {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.job-tabs button {
+    background-color: transparent;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    color: #555;
+}
+
+.job-tabs button.active {
+    border-bottom: 2px solid #007bff;
+    color: black;
+    font-weight: bold;
+}
+
+.job-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.filter-options {
+    display: flex;
+}
+
+.filter-options button {
+    background-color: transparent;
+    border: 1px solid #ccc;
+    padding: 5px 10px;
+    margin-right: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #555;
+}
+
+.filter-options input {
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.actions-col {
+    text-align: center;
+}
+
+/*Responsive Design (Example - adjust as needed)*/
+@media (max-width: 768px) {
+  .sidebar {
+    width: 150px; /* Reduce sidebar width on smaller screens */
+  }
+}
