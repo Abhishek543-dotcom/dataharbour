@@ -1,116 +1,136 @@
-# DataHarbour: A Data Processing Platform
+# PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO Docker Setup
 
-DataHarbour is a data processing platform designed for efficient data transformation, analysis, and job scheduling. This document provides an overview of the project's architecture, technology stack, and structure.
+This project provides a Docker-based environment for running PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO. It is designed for data engineering and analytics workflows.
 
-## Technology Stack
+## Features
+- **PySpark:** Distributed data processing with Spark.
+- **Hive:** Data warehouse infrastructure built on top of Hadoop.
+- **Delta Lake:** Reliable data lakes with ACID transactions.
+- **Jupyter Notebook:** Interactive development environment.
+- **Airflow:** Workflow orchestration and scheduling.
+- **PostgreSQL:** Relational database for Airflow metadata.
+- **MinIO:** S3-compatible object storage.
 
-DataHarbour utilizes a modern, scalable architecture leveraging a combination of open-source and cloud-based technologies:
+## Prerequisites
+- Docker installed on your machine.
+- Docker Compose installed.
+- Basic knowledge of Docker and the tools mentioned above.
 
-- **Frontend:** HTML, CSS, JavaScript (with the Monaco Editor for interactive notebooks)
-- **Backend:** Flask (Python) - RESTful API, notebook management, job scheduling.
-- **Database:** PostgreSQL - Stores metadata, job details, execution history.
-- **Big Data Processing:** Apache Spark with PySpark - Distributed data processing and analysis.
-- **Storage:** MinIO (or cloud-based alternative) - Object storage for data (including Delta files).
-- **Job Scheduling:** Celery with Redis - Distributed task queue for background job execution.
-- **Containerization:** Docker - Consistent application packaging and execution across environments.
-- **Orchestration:** Docker Compose - Manages multiple Docker services.
-- **Testing:** pytest (Python) - Unit and integration testing.
+## Setup
+1. **Clone the Repository**
+    ```bash
+    git clone https://github.com/your-username/pyspark-hive-delta-docker.git
+    cd pyspark-hive-delta-docker
+    ```
+2. **Build and Start the Services**
+    Run the following command to build and start all services:
+    ```bash
+    docker-compose up --build
+    ```
 
-## Project Structure
+3. **Access the Services**
+    - Jupyter Notebook: http://localhost:8888
+    - Airflow: http://localhost:8080
+    - pgAdmin (PostgreSQL Admin): http://localhost:5050
+    - MinIO Console: http://localhost:9001
 
-The project is organized into several key directories:
-```plaintext
-dataharbour/
-├── frontend/                  // Frontend (HTML, CSS, JavaScript)
-│   ├── index.html /others     // Main HTML page
-│   ├── styles.css             // Main CSS stylesheet
-│   ├── scripts.js             // Main JavaScript file
-│   ├── monaco-editor/         // Integrated Monaco Editor (if self-hosted)
-│   └── components/            // Optional: Separate JS files for better organization
-│       └── editor.js          // Script for editor logic
-├── backend/                   // Backend (Flask)
-│   ├── app.py                 // Main Flask application
-│   ├── api/                   // API endpoints (Flask blueprints)
-│   │   ├── workspace.py       // API endpoints for workspace
-│   │   ├── compute.py         // API endpoints for compute
-│   │   ├── workflows.py       // API endpoints for workflows
-│   │   └── __init__.py        // Blueprint initialization
-│   ├── notebooks/             // Notebook handling logic
-│   │   └── notebook_handler.py// Notebook management code
-│   ├── jobs/                  // Job scheduling logic (Celery)
-│   │   ├── job_worker.py      // Celery task worker
-│   │   ├── celeryconfig.py    // Celery configuration
-│   │   └── __init__.py        // Job scheduling init
-│   ├── extensions/            // Flask extensions (e.g., authentication, database)
-│   │   ├── auth.py            // Authentication logic
-│   │   ├── db.py              // Database initialization
-│   │   └── __init__.py        // Extensions init
-│   ├── config.py              // Flask configuration
-│   ├── logging_config.py      // Centralized logging configuration
-│   └── tests/                 // Testing folder for backend
-│       ├── test_api.py        // API unit tests
-│       ├── test_jobs.py       // Job scheduling tests
-│       └── test_db.py         // Database tests
-├── spark/                     // Spark (PySpark) code
-│   ├── transformations.py     // Data transformation scripts
-│   ├── analysis.py            // Data analysis scripts
-│   └── README.md              // Documentation for Spark scripts
-├── minio/                     // MinIO configuration (if not using cloud MinIO)
-│   └── config.json            // MinIO configuration file
-├── postgresql/                // PostgreSQL schema and scripts
-│   ├── schema.sql             // Database schema
-│   └── seed_data.sql          // Optional: Initial data for testing
-├── docker/                    // Dockerfiles and Compose file
-│   ├── Dockerfile.frontend    // For frontend
-│   ├── Dockerfile.backend     // For backend
-│   ├── Dockerfile.spark       // For Spark
-│   ├── Dockerfile.minio       // For MinIO
-│   ├── Dockerfile.postgres    // For PostgreSQL
-│   ├── Dockerfile.redis       // For Redis
-│   └── docker-compose.yml     // Orchestration
-├── .github/                   // GitHub Actions for CI/CD
-│   └── workflows/
-│       └── ci_cd.yml          // Workflow for CI/CD
-├── tests/                     // Root folder for testing
-│   ├── test_frontend.py       // Frontend unit tests (if required)
-│   ├── test_integration.py    // Integration tests
-│   └── test_system.py         // System-level tests
-├── requirements.txt           // Project dependencies
-├── README.md                  // Project overview and setup instructions
-└── .env.example               // Example environment variables for the project
+## Services Overview
+1. **Spark, Jupyter, and Airflow**
+    - **Spark:** Used for distributed data processing.
+    - **Jupyter Notebook:** Provides an interactive environment for writing and testing PySpark code.
+    - **Airflow:** Manages workflows and schedules tasks.
+    
+2. **PostgreSQL**
+    - Acts as the backend database for Airflow.
+    - Accessible via `psql` or pgAdmin.
 
-```
-## Detailed Folder Instructions:
+3. **MinIO**
+    - Provides S3-compatible object storage.
+    - Used for storing data in Delta Lake.
 
-**frontend/**: Contains all the client-side code responsible for the user interface. The `components` folder is optional but recommended for larger projects to separate UI components. If using a CDN for Monaco, remove the `monaco-editor` folder and include the CDN links directly in `index.html`.
+## Usage
+1. **Initialize Airflow Database**
+    Access the spark container:
+    ```bash
+    docker exec -it <SPARK_CONTAINER_ID> /bin/bash
+    ```
+    Initialize the Airflow database:
+    ```bash
+    airflow db init
+    ```
+    Create an admin user:
+    ```bash
+    airflow users create \
+        --username admin \
+        --password admin \
+        --firstname Admin \
+        --lastname User \
+        --role Admin \
+        --email admin@example.com
+    ```
+2. **Access Jupyter Notebook**
+    Open [http://localhost:8888](http://localhost:8888) in your browser.
+    Use the token provided in the terminal logs to log in.
 
-**backend/**: This directory houses the Flask-based backend API. Each subdirectory handles a specific aspect of the application's backend logic. Note that the `tests` subdirectory under `backend` contains unit tests for the backend components.
+3. **Access Airflow**
+    Open [http://localhost:8080](http://localhost:8080) in your browser.
+    Log in with the credentials you created (admin:admin).
 
-**spark/**: This folder contains PySpark scripts for data transformations and analysis. The `README.md` file should document the scripts' functionality and usage.
+4. **Access MinIO**
+    Open [http://localhost:9001](http://localhost:9001) in your browser.
+    Log in with the credentials:
+    - Username: `minioadmin`
+    - Password: `minioadmin`
 
-**minio/**: If you're self-hosting MinIO, this directory should contain the configuration files. If you are using a cloud-based MinIO service, this folder can be omitted.
+## Configuration
+1. **PostgreSQL Connection**
+    - Host: `postgres`
+    - Port: `5432`
+    - Username: `admin`
+    - Password: `admin`
+    - Database: `airflow`
 
-**postgresql/**: This contains SQL scripts for setting up the PostgreSQL database schema and optionally populating it with initial data.
+2. **MinIO Configuration**
+    - Endpoint: `http://minio:9000`
+    - Access Key: `minioadmin`
+    - Secret Key: `minioadmin`
 
-**docker/**: This folder contains the Dockerfiles required to create Docker images for each service and the `docker-compose.yml` file to orchestrate them.
+3. **Airflow Configuration**
+    - Database Connection: `postgresql+psycopg2://admin:admin@postgres:5432/airflow`
+    - Executor: `LocalExecutor`
 
-**.github/workflows**: This folder contains the configuration files for GitHub Actions CI/CD pipeline.
+## Troubleshooting
+1. **PostgreSQL Connection Issues**
+    Ensure the postgres service is running:
+    ```bash
+    docker ps
+    ```
+    Check the logs:
+    ```bash
+    docker logs postgres-1
+    ```
 
-**tests/**: Contains integration and system tests that cover the interactions between multiple components.
+2. **Airflow Database Initialization**
+    If Airflow fails to start, initialize the database manually:
+    ```bash
+    docker exec -it <AIRFLOW_CONTAINER_ID> /bin/bash
+    airflow db init
+    ```
 
-**requirements.txt**: List all the necessary Python packages for the backend and Spark.
+3. **MinIO Access Issues**
+    Ensure MinIO is running:
+    ```bash
+    docker logs minio-1
+    ```
+    Verify the credentials in the MinIO console.
 
-**.env.example**: Provides examples of environment variables (database credentials, API keys). **Create a `.env` file based on this example, but never commit the actual `.env` file to version control.**
+## License
+This project is licensed under the MIT License. See the LICENSE file for details.
 
-## Getting Started
+## Contributing
+Contributions are welcome! Please open an issue or submit a pull request.
 
-1. **Clone the repository:** `git clone [repository URL]`
-2. **Create a virtual environment:** `python3 -m venv venv`
-3. **Activate the virtual environment:** `source venv/bin/activate` (Linux/macOS) or `venv\Scripts\activate` (Windows)
-4. **Install dependencies:** `pip install -r requirements.txt`
-5. **Set up the database:** Create the PostgreSQL database and run `schema.sql` and `seed_data.sql` (if applicable).
-6. **Configure environment variables:** Create a `.env` file based on `.env.example`, filling in the appropriate values.
-7. **Run Docker Compose:** `docker-compose up -d`
-8. **(Optional) Run tests:** `pytest`
+## Contact
+For questions or feedback, please contact Your Name.
 
-This README provides a high-level overview. Each subdirectory may have its own `README.md` file with more specific instructions. Remember to carefully review the Dockerfile instructions and the configuration files for each service. Always start with a small set of core features and progressively expand your functionality.
+Enjoy using the PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO Docker setup! 🚀

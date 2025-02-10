@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # Spark, Jupyter, and Airflow service
+  spark:
+    build: .
+    ports:
+      - "8888:8888"  # Jupyter Notebook
+      - "8080:8080"  # Airflow
+    volumes:
+      - ./data:/data
+    environment:
+      - AIRFLOW_HOME=/data/airflow
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://admin:admin@postgres:5432/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    depends_on:
+      - postgres
+      - minio
+
+  # PostgreSQL database service
+  postgres:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=airflow
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin service for PostgreSQL management
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "5050:80"  # pgAdmin web interface
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    depends_on:
+      - postgres
+
+  # MinIO service for object storage
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO Console
+    volumes:
+      - ./data/minio/data:/data
+      - ./data/minio/config:/root/.minio
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Airflow scheduler service
+  airflow-scheduler:
+    image: apache/airflow:2.5.0
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://admin:admin@postgres:5432/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./data/airflow/dags:/opt/airflow/dags
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: scheduler
+
+  # Airflow webserver service
+  airflow-webserver:
+    image: apache/airflow:2.5.0
+    ports:
+      - "8081:8080"  # Airflow web interface
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://admin:admin@postgres:5432/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./data/airflow/dags:/opt/airflow/dags
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: webserver
+
+volumes:
+  postgres-data:
+  minio-data:
+  airflow-data:
