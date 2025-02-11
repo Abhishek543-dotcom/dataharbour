@@ -1,0 +1,23 @@
+# Ignore the data folder
+/data/
+
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore IDE-specific files
+.vscode/
+.idea/
+
+# Ignore environment files
+.env
+venv/
+env/
+
+# Ignore Docker-related files
+docker-compose.override.yml

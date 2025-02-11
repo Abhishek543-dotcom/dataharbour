@@ -19,8 +19,8 @@ This project provides a Docker-based environment for running PySpark, Hive, Delt
 ## Setup
 1. **Clone the Repository**
     ```bash
-    git clone https://github.com/your-username/pyspark-hive-delta-docker.git
-    cd pyspark-hive-delta-docker
+    git clone https://github.com/Abhishek543-dotcom/dataharbour.git
+    cd dataharbour
     ```
 2. **Build and Start the Services**
     Run the following command to build and start all services:
