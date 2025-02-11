@@ -30,7 +30,7 @@ This project provides a Docker-based environment for running PySpark, Hive, Delt
 
 3. **Access the Services**
     - Jupyter Notebook: http://localhost:8888
-    - Airflow: http://localhost:8080
+    - Airflow: http://localhost:8081
     - pgAdmin (PostgreSQL Admin): http://localhost:5050
     - MinIO Console: http://localhost:9001
 
