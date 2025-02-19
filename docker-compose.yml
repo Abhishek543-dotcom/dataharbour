@@ -1,21 +1,26 @@
 version: '3.8'
 
 services:
-  # Spark, Jupyter, and Airflow service
+  # Spark service (using your custom Spark image)
   spark:
     build: .
     ports:
-      - "8888:8888"  # Jupyter Notebook
-      - "8080:8080"  # Airflow
+      - "4040:4040"  # Spark UI port (adjust if needed)
     volumes:
-      - ./data:/data
-    environment:
-      - AIRFLOW_HOME=/data/airflow
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://admin:admin@postgres:5432/airflow
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - ./data/spark:/spark_data
     depends_on:
       - postgres
       - minio
+
+  # Jupyter Notebook service
+  jupyter:
+    image: jupyter/base-notebook:latest
+    ports:
+      - "8888:8888"  # Jupyter Notebook interface
+    volumes:
+      - ./data/jupyter:/home/jovyan/work
+    #environment:
+    #  - JUPYTER_TOKEN= "qwertyuiopasdffghjkl"  # Replace with your desired token
 
   # PostgreSQL database service
   postgres:
