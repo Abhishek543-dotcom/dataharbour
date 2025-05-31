@@ -1,4 +1,4 @@
-# PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO Docker Setup
+# DataHarbour
 
 This project provides a Docker-based environment for running PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO. It is designed for data engineering and analytics workflows.
 
@@ -10,6 +10,7 @@ This project provides a Docker-based environment for running PySpark, Hive, Delt
 - **Airflow:** Workflow orchestration and scheduling
 - **PostgreSQL:** Relational database for Airflow metadata
 - **MinIO:** S3-compatible object storage
+- **Service Dashboard:** Real-time monitoring and management interface for all services
 
 ## Prerequisites
 - Docker installed on your machine
@@ -84,6 +85,70 @@ This project provides a Docker-based environment for running PySpark, Hive, Delt
 - **Credentials:**
   - Username: minioadmin
   - Password: minioadmin
+
+### 7. Service Dashboard
+- **URL:** http://localhost:5000
+- **Features:**
+  - Real-time monitoring of all services
+  - View container status and health
+  - Monitor CPU and memory usage
+  - View container logs
+  - Service management capabilities
+
+To enable the dashboard, first build and run the dashboard service:
+
+```bash
+cd dashboard
+docker build -t dataharbour-dashboard .
+docker run -d \
+  -p 5000:5000 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --name dataharbour-dashboard \
+  dataharbour-dashboard
+```
+
+The dashboard provides:
+- **Service Overview:**
+  - Status of all running containers
+  - Real-time CPU and memory usage
+  - Port mappings
+  - Container health status
+
+- **Monitoring:**
+  - CPU usage graphs
+  - Memory consumption
+  - Container uptime
+  - Service state (running/stopped)
+
+- **Logs:**
+  - Real-time log viewing
+  - Last 10 log entries per container
+  - Auto-refresh every 5 seconds
+
+- **Service Management:**
+  - View all running services
+  - Monitor resource usage
+  - Check service health
+  - View service logs in real-time
+
+To add the dashboard service to your existing setup, add the following to your `docker-compose.yml`:
+
+```yaml
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - spark
+      - jupyter
+      - postgres
+      - minio
+      - airflow-webserver
+```
+
+Note: The dashboard requires access to the Docker socket to monitor containers. Make sure the proper permissions are set up for security.
 
 ## Service Configurations
 
