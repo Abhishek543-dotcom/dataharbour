@@ -3,7 +3,7 @@
   <span style="font-size:2.5rem; vertical-align:middle; color:#2563eb;"><b>DataHarbour</b></span>
 </h1>
 
-This project provides a Docker-based environment for running PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO. It is designed for data engineering and analytics workflows.
+This project provides a Docker-based environment for running PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, MinIO, and a built-in Service Dashboard. It is designed for data engineering and analytics workflows, with real-time monitoring and management of all services via the dashboard.
 
 ## Features
 - **PySpark:** Distributed data processing with Spark
@@ -13,7 +13,7 @@ This project provides a Docker-based environment for running PySpark, Hive, Delt
 - **Airflow:** Workflow orchestration and scheduling
 - **PostgreSQL:** Relational database for Airflow metadata
 - **MinIO:** S3-compatible object storage
-- **Service Dashboard:** Real-time monitoring and management interface for all services
+- **Service Dashboard:** Real-time monitoring, resource usage, logs, and management for all services
 
 ## Prerequisites
 - Docker installed on your machine
@@ -133,27 +133,6 @@ The dashboard provides:
   - Monitor resource usage
   - Check service health
   - View service logs in real-time
-
-To add the dashboard service to your existing setup, add the following to your `docker-compose.yml`:
-
-```yaml
-  dashboard:
-    build: ./dashboard
-    ports:
-      - "5000:5000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      - spark
-      - jupyter
-      - postgres
-      - minio
-      - airflow-webserver
-```
-
-Note: The dashboard requires access to the Docker socket to monitor containers. Make sure the proper permissions are set up for security.
-
-## Service Configurations
 
 ### PostgreSQL Connection Details
 ```python
