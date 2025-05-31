@@ -1,7 +1,7 @@
-<p align="left">
-  <img src="component/LOGO.svg" alt="DataHarbour Logo" height="32" style="vertical-align:middle; margin-right:8px;" />
-  <span style="font-size:2rem; vertical-align:middle;"><b>DataHarbour</b></span>
-</p>
+<h1 align="left" style="color:#2563eb;">
+  <img src="component/LOGO.svg" alt="DataHarbour Logo" height="40" style="vertical-align:middle; margin-right:12px;" />
+  <span style="font-size:2.5rem; vertical-align:middle; color:#2563eb;"><b>DataHarbour</b></span>
+</h1>
 
 This project provides a Docker-based environment for running PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO. It is designed for data engineering and analytics workflows.
 
