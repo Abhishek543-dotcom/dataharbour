@@ -1,4 +1,7 @@
-# DataHarbour
+<p align="left">
+  <img src="component/LOGO.svg" alt="DataHarbour Logo" height="32" style="vertical-align:middle; margin-right:8px;" />
+  <span style="font-size:2rem; vertical-align:middle;"><b>DataHarbour</b></span>
+</p>
 
 This project provides a Docker-based environment for running PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO. It is designed for data engineering and analytics workflows.
 
@@ -231,17 +234,3 @@ This project is licensed under the MIT License.
 
 ## Contributing
 Contributions are welcome! Please open an issue or submit a pull request.
-
-<header className="flex items-center p-4 border-b">
-  {/* Logo SVG */}
-  <span className="mr-2 flex items-center">
-    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-ship h-7 w-7 mr-2 text-primary">
-      <path d="M12 10.189V14"></path>
-      <path d="M12 2v3"></path>
-      <path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"></path>
-      <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"></path>
-      <path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path>
-    </svg>
-    <span className="text-xl font-bold">DataHarbour</span>
-  </span>
-</header>
