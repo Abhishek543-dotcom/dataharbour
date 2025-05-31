@@ -3,18 +3,18 @@
 This project provides a Docker-based environment for running PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO. It is designed for data engineering and analytics workflows.
 
 ## Features
-- **PySpark:** Distributed data processing with Spark.
-- **Hive:** Data warehouse infrastructure built on top of Hadoop.
-- **Delta Lake:** Reliable data lakes with ACID transactions.
-- **Jupyter Notebook:** Interactive development environment.
-- **Airflow:** Workflow orchestration and scheduling.
-- **PostgreSQL:** Relational database for Airflow metadata.
-- **MinIO:** S3-compatible object storage.
+- **PySpark:** Distributed data processing with Spark
+- **Hive:** Data warehouse infrastructure built on top of Hadoop
+- **Delta Lake:** Reliable data lakes with ACID transactions
+- **Jupyter Notebook:** Interactive development environment
+- **Airflow:** Workflow orchestration and scheduling
+- **PostgreSQL:** Relational database for Airflow metadata
+- **MinIO:** S3-compatible object storage
 
 ## Prerequisites
-- Docker installed on your machine.
-- Docker Compose installed.
-- Basic knowledge of Docker and the tools mentioned above.
+- Docker installed on your machine
+- Docker Compose installed
+- Basic knowledge of Docker and the tools mentioned above
 
 ## Setup
 1. **Clone the Repository**
@@ -22,45 +22,35 @@ This project provides a Docker-based environment for running PySpark, Hive, Delt
     git clone https://github.com/Abhishek543-dotcom/dataharbour.git
     cd dataharbour
     ```
+
 2. **Build and Start the Services**
-    Run the following command to build and start all services:
     ```bash
     docker-compose up --build
     ```
 
-3. **Access the Services**
-    - Jupyter Notebook: http://localhost:8888
-    - Airflow: http://localhost:8081
-    - pgAdmin (PostgreSQL Admin): http://localhost:5050
-    - MinIO Console: http://localhost:9001
+## Accessing Services
 
-## Services Overview
-1. **Spark, Jupyter, and Airflow**
-    - **Spark:** Used for distributed data processing.
-    - **Jupyter Notebook:** Provides an interactive environment for writing and testing PySpark code.
-    - **Airflow:** Manages workflows and schedules tasks.
-    
-2. **PostgreSQL**
-    - Acts as the backend database for Airflow.
-    - Accessible via `psql` or pgAdmin.
+### 1. Spark UI
+- **URL:** http://localhost:4040
+- Available when Spark jobs are running
 
-3. **MinIO**
-    - Provides S3-compatible object storage.
-    - Used for storing data in Delta Lake.
-
-## Usage
-1. **Initialize Airflow Database**
-    Access the spark container:
+### 2. Jupyter Notebook
+- **URL:** http://localhost:8888
+- Use the token from the container logs to login
+- To get the token:
     ```bash
-    docker exec -it <SPARK_CONTAINER_ID> /bin/bash
+    docker logs dataharbour-jupyter-1
     ```
-    Initialize the Airflow database:
+
+### 3. Airflow
+- **URL:** http://localhost:8081
+- **Default credentials:**
+  - Username: admin
+  - Password: admin
+- Initialize the database before first use:
     ```bash
-    airflow db init
-    ```
-    Create an admin user:
-    ```bash
-    airflow users create \
+    docker exec -it dataharbour-airflow-webserver-1 airflow db init
+    docker exec -it dataharbour-airflow-webserver-1 airflow users create \
         --username admin \
         --password admin \
         --firstname Admin \
@@ -68,69 +58,111 @@ This project provides a Docker-based environment for running PySpark, Hive, Delt
         --role Admin \
         --email admin@example.com
     ```
-2. **Access Jupyter Notebook**
-    Open [http://localhost:8888](http://localhost:8888) in your browser.
-    Use the token provided in the terminal logs to log in.
 
-3. **Access Airflow**
-    Open [http://localhost:8080](http://localhost:8080) in your browser.
-    Log in with the credentials you created (admin:admin).
+### 4. PostgreSQL
+- **Host:** localhost
+- **Port:** 5432
+- **Credentials:**
+  - Username: admin
+  - Password: admin
+  - Database: airflow
 
-4. **Access MinIO**
-    Open [http://localhost:9001](http://localhost:9001) in your browser.
-    Log in with the credentials:
-    - Username: `minioadmin`
-    - Password: `minioadmin`
+### 5. pgAdmin
+- **URL:** http://localhost:5050
+- **Login credentials:**
+  - Email: admin@example.com
+  - Password: admin
+- To connect to PostgreSQL:
+  - Host: postgres
+  - Port: 5432
+  - Username: admin
+  - Password: admin
 
-## Configuration
-1. **PostgreSQL Connection**
-    - Host: `postgres`
-    - Port: `5432`
-    - Username: `admin`
-    - Password: `admin`
-    - Database: `airflow`
+### 6. MinIO
+- **API URL:** http://localhost:9000
+- **Console URL:** http://localhost:9001
+- **Credentials:**
+  - Username: minioadmin
+  - Password: minioadmin
 
-2. **MinIO Configuration**
-    - Endpoint: `http://minio:9000`
-    - Access Key: `minioadmin`
-    - Secret Key: `minioadmin`
+## Service Configurations
 
-3. **Airflow Configuration**
-    - Database Connection: `postgresql+psycopg2://admin:admin@postgres:5432/airflow`
-    - Executor: `LocalExecutor`
+### PostgreSQL Connection Details
+```python
+{
+    'host': 'postgres',
+    'port': 5432,
+    'database': 'airflow',
+    'username': 'admin',
+    'password': 'admin'
+}
+```
+
+### MinIO Connection Details
+```python
+{
+    'endpoint': 'http://minio:9000',
+    'access_key': 'minioadmin',
+    'secret_key': 'minioadmin'
+}
+```
+
+### Airflow Connection String
+```
+postgresql+psycopg2://admin:admin@postgres:5432/airflow
+```
 
 ## Troubleshooting
-1. **PostgreSQL Connection Issues**
-    Ensure the postgres service is running:
-    ```bash
-    docker ps
-    ```
-    Check the logs:
-    ```bash
-    docker logs postgres-1
-    ```
 
-2. **Airflow Database Initialization**
-    If Airflow fails to start, initialize the database manually:
-    ```bash
-    docker exec -it <AIRFLOW_CONTAINER_ID> /bin/bash
-    airflow db init
-    ```
+### Check Service Status
+```bash
+docker-compose ps
+```
 
-3. **MinIO Access Issues**
-    Ensure MinIO is running:
-    ```bash
-    docker logs minio-1
-    ```
-    Verify the credentials in the MinIO console.
+### View Service Logs
+```bash
+# Spark logs
+docker logs dataharbour-spark-1
+
+# Jupyter logs
+docker logs dataharbour-jupyter-1
+
+# Airflow webserver logs
+docker logs dataharbour-airflow-webserver-1
+
+# PostgreSQL logs
+docker logs dataharbour-postgres-1
+
+# MinIO logs
+docker logs dataharbour-minio-1
+```
+
+### Common Issues
+
+1. **Service Won't Start**
+   - Check if ports are already in use
+   - Verify docker-compose.yml configuration
+   - Check service logs for errors
+
+2. **Cannot Connect to Services**
+   - Ensure all services are running
+   - Verify you're using correct ports
+   - Check if firewalls are blocking connections
+
+3. **Container Volume Issues**
+   - Check folder permissions
+   - Verify volume paths in docker-compose.yml
+
+## Data Persistence
+All data is persisted in the following directories:
+- Spark data: `./data/spark`
+- Jupyter notebooks: `./data/jupyter`
+- PostgreSQL data: `./data/postgres`
+- MinIO data: `./data/minio/data`
+- Airflow DAGs: `./data/airflow/dags`
 
 ## License
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## Contributing
 Contributions are welcome! Please open an issue or submit a pull request.
-
-## Contact
-For questions or feedback, please contact Your Name.
-
-Enjoy using the PySpark, Hive, Delta Lake, Jupyter Notebook, Airflow, PostgreSQL, and MinIO Docker setup! 🚀

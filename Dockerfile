@@ -33,7 +33,6 @@ COPY spark-defaults.conf $SPARK_HOME/conf/spark-defaults.conf
 
 # Entrypoint script
 COPY entrypoint.sh /entrypoint.sh
-COPY Dataset /Dataset
 RUN chmod +x /entrypoint.sh
 
 # Expose Jupyter Notebook and Airflow ports
