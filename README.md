@@ -1,5 +1,5 @@
 <h1 align="left" style="color:#2563eb;">
-  <img src="component/LOGO.svg" alt="DataHarbour Logo" height="40" style="vertical-align:middle; margin-right:12px;" />
+  <img src="component/LOGO-white.svg" alt="DataHarbour Logo" height="40" style="vertical-align:middle; margin-right:12px;" />
   <span style="font-size:2.5rem; vertical-align:middle; color:#2563eb;"><b>DataHarbour</b></span>
 </h1>
 
