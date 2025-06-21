@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SparkFlow - PySpark Job Management Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/material-darker.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .nav-menu {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 8px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            text-decoration: none;
+            color: #666;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .main-content {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .page-title {
+            font-size: 2.2em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .content-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Dashboard Styles */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        /* Notebook Styles */
+        .notebook-toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #666;
+            border: 1px solid #dee2e6;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .notebook-cell {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .notebook-cell:hover {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .cell-toolbar {
+            background: #f8f9fa;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .cell-type {
+            font-size: 0.85em;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .cell-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .cell-btn {
+            background: none;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            color: #666;
+            transition: background 0.2s;
+        }
+
+        .cell-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .CodeMirror {
+            height: 150px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        .cell-output {
+            background: #f8f9fa;
+            padding: 16px;
+            border-top: 1px solid #e0e0e0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* Jobs Styles */
+        .jobs-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .jobs-table th,
+        .jobs-table td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .jobs-table th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .status-running {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-completed {
+            background: #e8f5e8;
+            color: #2e7d2e;
+        }
+
+        .status-failed {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status-pending {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #666;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                display: none;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .notebook-toolbar {
+                flex-direction: column;
+            }
+        }
+
+        /* Animation */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .content-section {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        /* Charts */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="fas fa-fire"></i>
+                SparkFlow
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a class="nav-link active" data-section="dashboard">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-section="notebooks">
+                        <i class="fas fa-book"></i>
+                        Notebooks
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-section="jobs">
+                        <i class="fas fa-tasks"></i>
+                        Jobs
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-section="clusters">
+                        <i class="fas fa-server"></i>
+                        Clusters
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-section="monitoring">
+                        <i class="fas fa-chart-line"></i>
+                        Monitoring
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-section="settings">
+                        <i class="fas fa-cog"></i>
+                        Settings
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <h1 class="page-title" id="pageTitle">Dashboard</h1>
+                <div class="user-info">
+                    <span>Welcome, John Doe</span>
+                    <div class="user-avatar">JD</div>
+                </div>
+            </header>
+
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">12</div>
+                        <div class="stat-label">
+                            <i class="fas fa-book"></i>
+                            Active Notebooks
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">28</div>
+                        <div class="stat-label">
+                            <i class="fas fa-play"></i>
+                            Running Jobs
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">156</div>
+                        <div class="stat-label">
+                            <i class="fas fa-check-circle"></i>
+                            Completed Jobs
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">
+                            <i class="fas fa-server"></i>
+                            Active Clusters
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="jobsChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Notebooks Section -->
+            <section id="notebooks" class="content-section hidden">
+                <div class="notebook-toolbar">
+                    <button class="btn btn-primary" onclick="createNotebook()">
+                        <i class="fas fa-plus"></i>
+                        New Notebook
+                    </button>
+                    <button class="btn btn-secondary" onclick="importNotebook()">
+                        <i class="fas fa-upload"></i>
+                        Import
+                    </button>
+                    <button class="btn btn-secondary" onclick="saveNotebook()">
+                        <i class="fas fa-save"></i>
+                        Save
+                    </button>
+                    <button class="btn btn-secondary" onclick="runAllCells()">
+                        <i class="fas fa-play"></i>
+                        Run All
+                    </button>
+                </div>
+
+                <div id="notebookCells">
+                    <!-- Notebook cells will be dynamically added here -->
+                </div>
+
+                <button class="btn btn-secondary" onclick="addCell()" style="margin-top: 20px;">
+                    <i class="fas fa-plus"></i>
+                    Add Cell
+                </button>
+            </section>
+
+            <!-- Jobs Section -->
+            <section id="jobs" class="content-section hidden">
+                <div class="notebook-toolbar">
+                    <button class="btn btn-primary" onclick="refreshJobs()">
+                        <i class="fas fa-sync"></i>
+                        Refresh
+                    </button>
+                    <button class="btn btn-secondary" onclick="showJobDetails()">
+                        <i class="fas fa-eye"></i>
+                        View Details
+                    </button>
+                </div>
+
+                <table class="jobs-table">
+                    <thead>
+                        <tr>
+                            <th>Job ID</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Start Time</th>
+                            <th>Duration</th>
+                            <th>Cluster</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobsTableBody">
+                        <!-- Jobs will be populated here -->
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Clusters Section -->
+            <section id="clusters" class="content-section hidden">
+                <div class="notebook-toolbar">
+                    <button class="btn btn-primary" onclick="createCluster()">
+                        <i class="fas fa-plus"></i>
+                        New Cluster
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshClusters()">
+                        <i class="fas fa-sync"></i>
+                        Refresh
+                    </button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">spark-cluster-1</div>
+                        <div class="stat-label">
+                            <i class="fas fa-circle" style="color: #4caf50;"></i>
+                            Running - 4 cores, 8GB RAM
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">spark-cluster-2</div>
+                        <div class="stat-label">
+                            <i class="fas fa-circle" style="color: #ff9800;"></i>
+                            Starting - 8 cores, 16GB RAM
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">spark-cluster-3</div>
+                        <div class="stat-label">
+                            <i class="fas fa-circle" style="color: #f44336;"></i>
+                            Stopped - 2 cores, 4GB RAM
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Monitoring Section -->
+            <section id="monitoring" class="content-section hidden">
+                <div class="chart-container">
+                    <canvas id="resourceChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="content-section hidden">
+                <h3>Platform Settings</h3>
+                <div class="form-group">
+                    <label class="form-label">Default Cluster</label>
+                    <select class="form-select">
+                        <option>spark-cluster-1</option>
+                        <option>spark-cluster-2</option>
+                        <option>spark-cluster-3</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Auto-save Interval (minutes)</label>
+                    <input type="number" class="form-input" value="5">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Default Spark Configuration</label>
+                    <textarea class="form-input" rows="4">spark.executor.memory=2g
+spark.executor.cores=2
+spark.sql.adaptive.enabled=true</textarea>
+                </div>
+                <button class="btn btn-primary">Save Settings</button>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Modal removed - using inline sections instead -->
+
+    <script>
+        // Global variables
+        let currentNotebook = { cells: [] };
+        let jobs = [];
+        let codeEditors = [];
+
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.dataset.section;
+                showSection(section);
+                
+                // Update active nav item
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                
+                // Update page title
+                const titles = {
+                    dashboard: 'Dashboard',
+                    notebooks: 'Notebooks',
+                    jobs: 'Jobs',
+                    clusters: 'Clusters',
+                    monitoring: 'Monitoring',
+                    settings: 'Settings'
+                };
+                document.getElementById('pageTitle').textContent = titles[section];
+            });
+        });
+
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName).classList.remove('hidden');
+            
+            // Initialize section-specific functionality
+            if (sectionName === 'dashboard') {
+                initDashboard();
+            } else if (sectionName === 'jobs') {
+                loadJobs();
+            } else if (sectionName === 'monitoring') {
+                initMonitoring();
+            }
+        }
+
+        // Dashboard functionality
+        function initDashboard() {
+            const ctx = document.getElementById('jobsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Jobs Completed',
+                        data: [12, 19, 3, 5, 2, 3, 20],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Notebook functionality
+        function createNotebook() {
+            currentNotebook = { 
+                id: Date.now(),
+                name: 'Untitled Notebook',
+                cells: []
+            };
+            document.getElementById('notebookCells').innerHTML = '';
+            addCell();
+        }
+
+        function addCell() {
+            const cellId = 'cell_' + Date.now();
+            const cellHtml = `
+                <div class="notebook-cell" id="${cellId}">
+                    <div class="cell-toolbar">
+                        <span class="cell-type">Code</span>
+                        <div class="cell-actions">
+                            <button class="cell-btn" onclick="runCell('${cellId}')" title="Run Cell">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="cell-btn" onclick="deleteCell('${cellId}')" title="Delete Cell">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="cell-editor">
+                        <textarea id="editor_${cellId}">from pyspark.sql import SparkSession
+
+# Create Spark session
+spark = SparkSession.builder \\
+    .appName("MySparkApp") \\
+    .getOrCreate()
+
+# Your PySpark code here
+df = spark.read.csv("data.csv", header=True, inferSchema=True)
+df.show()</textarea>
+                    </div>
+                    <div class="cell-output" id="output_${cellId}" style="display: none;"></div>
+                </div>
+            `;
+            
+            document.getElementById('notebookCells').insertAdjacentHTML('beforeend', cellHtml);
+            
+            // Initialize CodeMirror for the new cell
+            const editor = CodeMirror.fromTextArea(document.getElementById(`editor_${cellId}`), {
+                mode: 'python',
+                theme: 'material-darker',
+                lineNumbers: true,
+                autoCloseBrackets: true,
+                matchBrackets: true
+            });
+            
+            codeEditors[cellId] = editor;
+            currentNotebook.cells.push({ id: cellId, code: editor.getValue() });
+        }
+
+        function runCell(cellId) {
+            const outputDiv = document.getElementById(`output_${cellId}`);
+            const editor = codeEditors[cellId];
+            const code = editor.getValue();
+            
+            // Show output div
+            outputDiv.style.display = 'block';
+            outputDiv.innerHTML = 'Running cell...';
+            
+            // Simulate job execution (in real implementation, this would call your backend API)
+            setTimeout(() => {
+                const mockOutput = `Job submitted successfully!
+Job ID: job_${Date.now()}
+Status: Running
+Cluster: spark-cluster-1
+
+Output:
++-------+----------+
+|   col1|      col2|
++-------+----------+
+|      1|     Alice|
+|      2|       Bob|
+|      3|   Charlie|
++-------+----------+
+
+Execution completed in 2.3s`;
+
+                outputDiv.innerHTML = mockOutput;
+                
+                // Add to jobs list
+                addJob({
+                    id: `job_${Date.now()}`,
+                    name: `Notebook Cell ${cellId}`,
+                    status: 'completed',
+                    startTime: new Date().toLocaleString(),
+                    duration: '2.3s',
+                    cluster: 'spark-cluster-1'
+                });
+            }, 2000);
+        }
+
+        function deleteCell(cellId) {
+            if (confirm('Are you sure you want to delete this cell?')) {
+                document.getElementById(cellId).remove();
+                delete codeEditors[cellId];
+                currentNotebook.cells = currentNotebook.cells.filter(cell => cell.id !== cellId);
+            }
+        }
+
+        function runAllCells() {
+            const cells = document.querySelectorAll('.notebook-cell');
+            cells.forEach((cell, index) => {
+                setTimeout(() => {
+                    runCell(cell.id);
+                }, index * 1000);
+            });
+        }
+
+        function saveNotebook() {
+            // Update current notebook with latest code
+            currentNotebook.cells.forEach(cell => {
+                if (codeEditors[cell.id]) {
+                    cell.code = codeEditors[cell.id].getValue();
+                }
+            });
+            
+            // In real implementation, this would save to backend
+            alert('Notebook saved successfully!');
+        }
+
+        function importNotebook() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,.ipynb';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const notebook = JSON.parse(e.target.result);
+                            // Process imported notebook
+                            alert('Notebook imported successfully!');
+                        } catch (error) {
+                            alert('Error importing notebook: ' + error.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+
+        // Jobs functionality
+        function loadJobs() {
+            // Mock jobs data
+            const mockJobs = [
+                { id: 'job_001', name: 'Data Processing Pipeline', status: 'running', startTime: '2024-01-15 10:30', duration: '5m 23s', cluster: 'spark-cluster-1' },
+                { id: 'job_002', name: 'ETL Job - Customer Data', status: 'completed', startTime: '2024-01-15 09:15', duration: '12m 45s', cluster: 'spark-cluster-2' },
+                { id: 'job_003', name: 'Machine Learning Training', status: 'failed', startTime: '2024-01-15 08:45', duration: '3m 12s', cluster: 'spark-cluster-1' },
+                { id: 'job_004', name: 'Analytics Report Generation', status: 'pending', startTime: '2024-01-15 11:00', duration: '-', cluster: 'spark-cluster-3' }
+            ];
+            
+            jobs = mockJobs;
+            renderJobsTable();
+        }
+
+        function renderJobsTable() {
+            const tbody = document.getElementById('jobsTableBody');
+            tbody.innerHTML = '';
+            
+            jobs.forEach(job => {
+                const row = `
+                    <tr>
+                        <td>${job.id}</td>
+                        <td>${job.name}</td>
+                        <td><span class="status-badge status-${job.status}">${job.status}</span></td>
+                        <td>${job.startTime}</td>
+                        <td>${job.duration}</td>
+                        <td>${job.cluster}</td>
+                        <td>
+                            <button class="cell-btn" onclick="showJobDetails('${job.id}')" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="cell-btn" onclick="viewSparkUI('${job.id}')" title="Spark UI">
+                                <i class="fas fa-external-link-alt"></i>
+                            </button>
+                            <button class="cell-btn" onclick="killJob('${job.id}')" title="Kill Job">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+
+        function addJob(job) {
+            jobs.unshift(job);
+            renderJobsTable();
+        }
+
+        function refreshJobs() {
+            loadJobs();
+            alert('Jobs refreshed!');
+        }
+
+        function showJobDetails(jobId) {
+            const job = jobs.find(j => j.id === jobId);
+            if (!job) return;
+            
+            // Create a new section for job details instead of modal
+            const jobDetailsSection = document.createElement('section');
+            jobDetailsSection.id = 'job-details';
+            jobDetailsSection.className = 'content-section';
+            
+            jobDetailsSection.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                    <h2 style="color: #667eea; font-size: 1.8em; margin: 0;">Job Details - ${job.id}</h2>
+                    <button class="btn btn-secondary" onclick="closeJobDetails()">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Jobs
+                    </button>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+                    <div class="form-group">
+                        <label class="form-label">Job ID</label>
+                        <input type="text" class="form-input" value="${job.id}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-input" value="${job.name}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <input type="text" class="form-input" value="${job.status}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cluster</label>
+                        <input type="text" class="form-input" value="${job.cluster}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Time</label>
+                        <input type="text" class="form-input" value="${job.startTime}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Duration</label>
+                        <input type="text" class="form-input" value="${job.duration}" readonly>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Job Logs</label>
+                    <textarea class="form-input" rows="12" readonly style="font-family: monospace; background: #f8f9fa;">2024-01-15 10:30:15 INFO SparkContext: Starting Spark application
+2024-01-15 10:30:16 INFO SparkSession: Created SparkSession for ${job.name}
+2024-01-15 10:30:17 INFO TaskScheduler: Adding task set 0.0 with 4 tasks
+2024-01-15 10:30:18 INFO TaskSetManager: Starting 4 tasks in 1.0s
+2024-01-15 10:30:19 INFO Executor: Running task 0.0 in stage 0.0 (TID 0, localhost, executor driver, partition 0, PROCESS_LOCAL, 7372 bytes)
+2024-01-15 10:30:20 INFO BlockManager: Found block rdd_1_0 locally
+2024-01-15 10:30:21 INFO TaskSetManager: Finished task 0.0 in stage 0.0 (TID 0) in 1023 ms on localhost (executor driver) (1/4)
+2024-01-15 10:30:21 INFO TaskSetManager: Finished task 1.0 in stage 0.0 (TID 1) in 982 ms on localhost (executor driver) (2/4)
+2024-01-15 10:30:22 INFO TaskSetManager: Finished task 2.0 in stage 0.0 (TID 2) in 1156 ms on localhost (executor driver) (3/4)
+2024-01-15 10:30:22 INFO TaskSetManager: Finished task 3.0 in stage 0.0 (TID 3) in 1098 ms on localhost (executor driver) (4/4)
+${job.status === 'failed' ? '2024-01-15 10:30:22 ERROR TaskScheduler: Task 0 in stage 1.0 failed 4 times; aborting job\n2024-01-15 10:30:22 ERROR SparkContext: Job execution failed: java.lang.OutOfMemoryError' : '2024-01-15 10:30:22 INFO DAGScheduler: Job 0 finished: collect at SparkApp.py:25, took 2.340821 s\n2024-01-15 10:30:22 INFO SparkContext: Job completed successfully'}</textarea>
+                </div>
+                
+                <div style="margin-top: 30px; display: flex; gap: 15px;">
+                    <button class="btn btn-primary" onclick="viewSparkUI('${jobId}')">
+                        <i class="fas fa-external-link-alt"></i>
+                        Open Spark UI
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadLogs('${jobId}')">
+                        <i class="fas fa-download"></i>
+                        Download Logs
+                    </button>
+                    <button class="btn btn-secondary" onclick="restartJob('${jobId}')">
+                        <i class="fas fa-redo"></i>
+                        Restart Job
+                    </button>
+                    ${job.status === 'running' ? `<button class="btn btn-secondary" onclick="killJob('${jobId}')" style="background: #f44336; color: white;">
+                        <i class="fas fa-stop"></i>
+                        Kill Job
+                    </button>` : ''}
+                </div>
+            `;
+            
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            // Add the job details section to main content
+            document.querySelector('.main-content').appendChild(jobDetailsSection);
+            
+            // Update page title
+            document.getElementById('pageTitle').textContent = `Job Details - ${job.id}`;
+        }
+        
+        function closeJobDetails() {
+            const jobDetailsSection = document.getElementById('job-details');
+            if (jobDetailsSection) {
+                jobDetailsSection.remove();
+            }
+            
+            // Show jobs section
+            document.getElementById('jobs').classList.remove('hidden');
+            document.getElementById('pageTitle').textContent = 'Jobs';
+            
+            // Update active nav
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelector('[data-section="jobs"]').classList.add('active');
+        }
+        
+        function restartJob(jobId) {
+            if (confirm('Are you sure you want to restart this job?')) {
+                const job = jobs.find(j => j.id === jobId);
+                if (job) {
+                    job.status = 'pending';
+                    setTimeout(() => {
+                        job.status = 'running';
+                        job.startTime = new Date().toLocaleString();
+                    }, 1000);
+                    alert('Job restart initiated!');
+                    closeJobDetails();
+                }
+            }
+        }
+
+        function viewSparkUI(jobId) {
+            // In real implementation, this would open the Spark UI
+            window.open(`http://spark-cluster:4040/jobs/job/?id=${jobId}`, '_blank');
+        }
+
+        function killJob(jobId) {
+            if (confirm('Are you sure you want to kill this job?')) {
+                const job = jobs.find(j => j.id === jobId);
+                if (job && job.status === 'running') {
+                    job.status = 'killed';
+                    renderJobsTable();
+                    alert('Job killed successfully!');
+                }
+            }
+        }
+
+        function downloadLogs(jobId) {
+            // Create mock log content
+            const logContent = `SparkFlow Job Logs - ${jobId}
+Generated: ${new Date().toLocaleString()}
+
+2024-01-15 10:30:15 INFO SparkContext: Starting Spark application
+2024-01-15 10:30:16 INFO SparkSession: Created SparkSession
+2024-01-15 10:30:17 INFO TaskScheduler: Adding task set 0.0 with 4 tasks
+2024-01-15 10:30:18 INFO TaskSetManager: Starting 4 tasks in 1.0s
+2024-01-15 10:30:19 INFO Executor: Running task 0.0 in stage 0.0
+2024-01-15 10:30:20 INFO BlockManager: Found block rdd_1_0 locally
+2024-01-15 10:30:21 INFO TaskSetManager: Finished task 0.0 in stage 0.0
+2024-01-15 10:30:22 INFO SparkContext: Job completed successfully`;
+            
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${jobId}_logs.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Cluster functionality
+        function createCluster() {
+            const clusterName = prompt('Enter cluster name:');
+            if (clusterName) {
+                alert(`Creating cluster: ${clusterName}...`);
+                // In real implementation, this would call your backend API
+            }
+        }
+
+        function refreshClusters() {
+            alert('Clusters refreshed!');
+        }
+
+        // Monitoring functionality
+        function initMonitoring() {
+            // Resource utilization chart
+            const resourceCtx = document.getElementById('resourceChart').getContext('2d');
+            new Chart(resourceCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['CPU Used', 'CPU Available', 'Memory Used', 'Memory Available'],
+                    datasets: [{
+                        data: [65, 35, 78, 22],
+                        backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5f7fa']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Cluster Resource Utilization'
+                        }
+                    }
+                }
+            });
+
+            // Performance metrics chart
+            const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(performanceCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => i + 'h'),
+                    datasets: [{
+                        label: 'Job Throughput',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 100) + 20),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true
+                    }, {
+                        label: 'Error Rate',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 10)),
+                        borderColor: '#f44336',
+                        backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '24-Hour Performance Metrics'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Modal functionality
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.add('hidden');
+            }
+        });
+
+        // Initialize the platform
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize dashboard on load
+            initDashboard();
+            
+            // Add initial notebook cell
+            addCell();
+            
+            // Load initial jobs
+            loadJobs();
+            
+            // Simulate real-time updates
+            setInterval(() => {
+                // Update job statuses randomly
+                jobs.forEach(job => {
+                    if (job.status === 'running' && Math.random() < 0.1) {
+                        job.status = Math.random() < 0.8 ? 'completed' : 'failed';
+                        renderJobsTable();
+                    }
+                });
+            }, 5000);
+        });
+
+        // Auto-save functionality
+        setInterval(() => {
+            if (currentNotebook.cells.length > 0) {
+                // Auto-save notebook every 5 minutes
+                console.log('Auto-saving notebook...');
+            }
+        }, 300000);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+S to save notebook
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                saveNotebook();
+            }
+            
+            // Ctrl+Enter to run current cell
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                // Find active cell and run it
+                const activeCell = document.querySelector('.notebook-cell:hover');
+                if (activeCell) {
+                    runCell(activeCell.id);
+                }
+            }
+        });
+
+        // WebSocket connection for real-time updates (mock)
+        function initWebSocket() {
+            // In real implementation, connect to WebSocket for real-time job updates
+            console.log('WebSocket connection established');
+        }
+
+        // File upload handling
+        function handleFileUpload(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // In real implementation, upload to backend
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('File uploaded:', data);
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+            });
+        }
+
+        // Export notebook functionality
+        function exportNotebook(format = 'json') {
+            const notebookData = {
+                metadata: {
+                    name: currentNotebook.name,
+                    created: new Date().toISOString(),
+                    version: '1.0'
+                },
+                cells: currentNotebook.cells.map(cell => ({
+                    id: cell.id,
+                    type: 'code',
+                    source: codeEditors[cell.id] ? codeEditors[cell.id].getValue() : cell.code
+                }))
+            };
+            
+            const blob = new Blob([JSON.stringify(notebookData, null, 2)], { 
+                type: 'application/json' 
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentNotebook.name || 'notebook'}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
