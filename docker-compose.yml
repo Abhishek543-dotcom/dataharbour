@@ -1,29 +1,53 @@
 version: '3.8'
 
 services:
-  dashboard:
-    build: ./dashboard
+  # Backend API service
+  backend:
+    build: ./backend
     ports:
-      - "5000:5000"
+      - "8000:8000"  # FastAPI backend
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/notebooks:/data/notebooks
+    environment:
+      - SPARK_MASTER_URL=spark://spark:7077
+      - SPARK_UI_URL=http://spark:4040
+      - AIRFLOW_BASE_URL=http://airflow-webserver:8080
+      - JUPYTER_BASE_URL=http://jupyter:8888
+      - POSTGRES_HOST=postgres
+      - MINIO_ENDPOINT=minio:9000
     depends_on:
       - spark
       - jupyter
       - postgres
       - minio
       - airflow-webserver
+    networks:
+      - dataharbour-network
+
+  # React Frontend (Production build)
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - dataharbour-network
 
   # Spark service (using your custom Spark image)
   spark:
     build: .
     ports:
       - "4040:4040"  # Spark UI port (adjust if needed)
+      - "7077:7077"  # Spark Master port
     volumes:
       - ./data/spark:/spark_data
     depends_on:
       - postgres
       - minio
+    networks:
+      - dataharbour-network
 
   # Jupyter Notebook service
   jupyter:
@@ -32,6 +56,8 @@ services:
       - "8888:8888"  # Jupyter Notebook interface
     volumes:
       - ./data/jupyter:/home/jovyan/work
+    networks:
+      - dataharbour-network
     #environment:
     #  - JUPYTER_TOKEN= "qwertyuiopasdffghjkl"  # Replace with your desired token
 
@@ -51,6 +77,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - dataharbour-network
 
   # pgAdmin service for PostgreSQL management
   pgadmin:
@@ -62,6 +90,8 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=admin
     depends_on:
       - postgres
+    networks:
+      - dataharbour-network
 
   # MinIO service for object storage
   minio:
@@ -81,6 +111,8 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+    networks:
+      - dataharbour-network
 
   # Airflow scheduler service
   airflow-scheduler:
@@ -95,6 +127,8 @@ services:
       postgres:
         condition: service_healthy
     command: scheduler
+    networks:
+      - dataharbour-network
 
   # Airflow webserver service
   airflow-webserver:
@@ -111,8 +145,15 @@ services:
       postgres:
         condition: service_healthy
     command: webserver
+    networks:
+      - dataharbour-network
+
+networks:
+  dataharbour-network:
+    driver: bridge
 
 volumes:
   postgres-data:
   minio-data:
   airflow-data:
+  notebook-data:

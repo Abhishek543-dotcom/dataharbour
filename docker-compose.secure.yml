@@ -1,0 +1,130 @@
+# Secure Docker Compose Configuration
+# Use this for production deployments
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.secure.yml up -d
+
+version: '3.8'
+
+services:
+  # Backend API service with security hardening
+  backend:
+    environment:
+      # Load from .env file
+      - ENVIRONMENT=production
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - AIRFLOW_USERNAME=${AIRFLOW_USERNAME}
+      - AIRFLOW_PASSWORD=${AIRFLOW_PASSWORD}
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
+      - BACKEND_SECRET_KEY=${BACKEND_SECRET_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - ENABLE_RATE_LIMITING=true
+      - RATE_LIMIT_PER_MINUTE=60
+      - LOG_LEVEL=WARNING
+      - ENABLE_AUDIT_LOG=true
+    # Remove Docker socket mount for security
+    volumes:
+      - ./data/notebooks:/data/notebooks
+      - ./data/logs:/data/logs
+    # Run as non-root user
+    user: "1000:1000"
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    # Read-only root filesystem (with writable volumes)
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # Frontend with secure nginx configuration
+  frontend:
+    environment:
+      - VITE_API_BASE_URL=https://api.dataharbour.local/api/v1
+      - VITE_WS_URL=wss://api.dataharbour.local/ws
+    security_opt:
+      - no-new-privileges:true
+
+  # PostgreSQL with security hardening
+  postgres:
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=airflow
+    # Don't expose port externally in production
+    ports: []
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+    # Run as postgres user
+    user: "postgres"
+
+  # MinIO with security hardening
+  minio:
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    # Don't expose ports externally (use reverse proxy)
+    ports: []
+    security_opt:
+      - no-new-privileges:true
+
+  # Jupyter with authentication enabled
+  jupyter:
+    environment:
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
+      - JUPYTER_ENABLE_LAB=yes
+    # Don't expose port externally
+    ports: []
+    security_opt:
+      - no-new-privileges:true
+
+  # Airflow webserver with authentication
+  airflow-webserver:
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW__WEBSERVER__SECRET_KEY}
+    # Don't expose port externally
+    ports: []
+    security_opt:
+      - no-new-privileges:true
+
+  # Airflow scheduler
+  airflow-scheduler:
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    security_opt:
+      - no-new-privileges:true
+
+  # pgAdmin (disable in production or secure properly)
+  pgadmin:
+    profiles:
+      - dev-tools  # Only run with --profile dev-tools
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+
+  # Spark with security
+  spark:
+    security_opt:
+      - no-new-privileges:true
+
+# Named volumes for data persistence
+volumes:
+  postgres-data:
+    driver: local
+  minio-data:
+    driver: local
+
+# Networks
+networks:
+  dataharbour-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

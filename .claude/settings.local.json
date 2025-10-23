@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git show-branch:*)",
+      "Bash(Remove-Item -Recurse -Force \"c:\\Users\\AbhishekTiwari\\Desktop\\dev\\dataharbour\\dashboard\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
