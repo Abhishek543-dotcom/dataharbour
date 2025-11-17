@@ -90,3 +90,8 @@ settings = Settings()
 # Validate security on startup
 if settings.ENVIRONMENT == "production":
     settings.validate_security()
+
+
+def get_settings() -> Settings:
+    """Get settings instance"""
+    return settings

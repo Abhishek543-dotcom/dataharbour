@@ -8,7 +8,7 @@ aiofiles==23.2.1
 
 # Spark integration
 pyspark==3.3.0
-py4j==0.10.9.7
+py4j==0.10.9.5
 
 # Airflow client
 apache-airflow-client==2.5.0

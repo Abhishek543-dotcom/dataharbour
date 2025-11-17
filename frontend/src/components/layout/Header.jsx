@@ -4,8 +4,11 @@ import useStore from '../../store/useStore';
 
 const pageTitles = {
   '/': 'Dashboard',
-  '/notebooks': 'Notebooks',
   '/jobs': 'Jobs',
+  '/notebooks': 'Notebooks',
+  '/database': 'Database Explorer',
+  '/airflow': 'Airflow Orchestration',
+  '/storage': 'Storage Browser',
   '/clusters': 'Clusters',
   '/monitoring': 'Monitoring',
   '/settings': 'Settings',

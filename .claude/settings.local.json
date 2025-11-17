@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(git show-branch:*)",
-      "Bash(Remove-Item -Recurse -Force \"c:\\Users\\AbhishekTiwari\\Desktop\\dev\\dataharbour\\dashboard\")"
+      "Bash(Remove-Item -Recurse -Force \"c:\\Users\\AbhishekTiwari\\Desktop\\dev\\dataharbour\\dashboard\")",
+      "Read(//home/abhishekiwari/dataharbour/**)",
+      "Bash(npm install)",
+      "Bash(wsl -d Ubuntu-24.04 -e bash -c \"cd /home/abhishekiwari/dataharbour/frontend && npm install\":*)",
+      "Bash(wsl -d Ubuntu-24.04 -e bash -c:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
