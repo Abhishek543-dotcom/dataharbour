@@ -8,7 +8,16 @@
       "Bash(wsl -d Ubuntu-24.04 -e bash -c \"cd /home/abhishekiwari/dataharbour/frontend && npm install\":*)",
       "Bash(wsl -d Ubuntu-24.04 -e bash -c:*)",
       "Bash(find:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(wc:*)",
+      "Bash(alembic init:*)",
+      "Bash(podman ps:*)",
+      "Bash(docker ps:*)",
+      "Bash(podman logs:*)",
+      "Bash(podman exec:*)",
+      "Bash(podman compose:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose build:*)"
     ],
     "deny": [],
     "ask": []

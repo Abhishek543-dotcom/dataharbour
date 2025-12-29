@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Jobs from './pages/Jobs';
@@ -10,6 +11,8 @@ import Storage from './pages/Storage';
 import Clusters from './pages/Clusters';
 import Monitoring from './pages/Monitoring';
 import Settings from './pages/Settings';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import websocketService from './services/websocket';
 import useStore from './store/useStore';
 
@@ -45,19 +48,26 @@ function App() {
   }, [setWsConnected, updateJobInList, updateMetrics]);
 
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/jobs" element={<Jobs />} />
-        <Route path="/notebooks" element={<Notebooks />} />
-        <Route path="/database" element={<Database />} />
-        <Route path="/airflow" element={<Airflow />} />
-        <Route path="/storage" element={<Storage />} />
-        <Route path="/clusters" element={<Clusters />} />
-        <Route path="/monitoring" element={<Monitoring />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        {/* Auth routes (no layout) */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* App routes (with layout) */}
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/jobs" element={<Jobs />} />
+          <Route path="/notebooks" element={<Notebooks />} />
+          <Route path="/database" element={<Database />} />
+          <Route path="/airflow" element={<Airflow />} />
+          <Route path="/storage" element={<Storage />} />
+          <Route path="/clusters" element={<Clusters />} />
+          <Route path="/monitoring" element={<Monitoring />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </AuthProvider>
   );
 }
 

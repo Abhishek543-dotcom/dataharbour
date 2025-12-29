@@ -1,8 +1,12 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import dashboard, notebooks, jobs, clusters, monitoring, database, airflow, storage
+from app.api.v1.endpoints import dashboard, notebooks, jobs, clusters, monitoring, database, airflow, storage, auth
 
 router = APIRouter()
 
+# Authentication routes (no prefix, handled in auth.py)
+router.include_router(auth.router)
+
+# Other routes
 router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 router.include_router(notebooks.router, prefix="/notebooks", tags=["notebooks"])
 router.include_router(jobs.router, prefix="/jobs", tags=["jobs"])

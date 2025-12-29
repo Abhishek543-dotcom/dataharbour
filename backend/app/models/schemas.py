@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -178,3 +178,51 @@ class APIResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
+
+
+# Authentication & Users
+class UserBase(BaseModel):
+    email: EmailStr
+    username: str
+    full_name: Optional[str] = None
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None
+    full_name: Optional[str] = None
+    password: Optional[str] = None
+
+
+class User(UserBase):
+    id: str
+    is_active: bool = True
+    is_superuser: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserInDB(User):
+    hashed_password: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class TokenPayload(BaseModel):
+    sub: Optional[str] = None  # subject (user_id)
+    exp: Optional[int] = None  # expiration time
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str

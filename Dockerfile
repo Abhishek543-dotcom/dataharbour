@@ -1,5 +1,5 @@
-# Use a base image with Java 11
-FROM openjdk:11
+# Use a base image with Java 11 (eclipse-temurin is the official replacement for deprecated openjdk)
+FROM eclipse-temurin:11-jdk
 
 # Install Python and dependencies
 RUN apt-get update && apt-get install -y python3 python3-pip wget postgresql-client

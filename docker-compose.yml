@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Backend API service
   backend:
@@ -10,12 +8,29 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data/notebooks:/data/notebooks
     environment:
+      - DATABASE_URL=postgresql://admin:admin@postgres:5432/dataharbour
+      - JWT_SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - ENABLE_AUTH=true
+      - ENABLE_REGISTRATION=true
       - SPARK_MASTER_URL=spark://spark:7077
       - SPARK_UI_URL=http://spark:4040
       - AIRFLOW_BASE_URL=http://airflow-webserver:8080
+      - AIRFLOW_USERNAME=admin
+      - AIRFLOW_PASSWORD=admin
       - JUPYTER_BASE_URL=http://jupyter:8888
       - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=dataharbour
       - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_SECURE=false
+      - MINIO_BUCKET_NAME=dataharbour
+      - ENVIRONMENT=development
     depends_on:
       - spark
       - jupyter
@@ -35,14 +50,19 @@ services:
     networks:
       - dataharbour-network
 
-  # Spark service (using your custom Spark image)
+  # Spark service - using Jupyter PySpark notebook which includes Spark
   spark:
-    build: .
+    image: jupyter/pyspark-notebook:latest
     ports:
-      - "4040:4040"  # Spark UI port (adjust if needed)
+      - "4040:4040"  # Spark UI port
       - "7077:7077"  # Spark Master port
+      - "8080:8080"  # Spark Master Web UI
+      - "8889:8888"  # Jupyter port (different from main jupyter service)
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: start.sh spark-master
     volumes:
-      - ./data/spark:/spark_data
+      - ./data/spark:/home/jovyan/work
     depends_on:
       - postgres
       - minio
@@ -69,11 +89,13 @@ services:
     environment:
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=admin
-      - POSTGRES_DB=airflow
+      - POSTGRES_DB=dataharbour
+      - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d airflow"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d dataharbour"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -100,8 +122,7 @@ services:
       - "9000:9000"  # MinIO API
       - "9001:9001"  # MinIO Console
     volumes:
-      - ./data/minio/data:/data
-      - ./data/minio/config:/root/.minio
+      - minio-data:/data
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin

@@ -2,12 +2,16 @@
 Storage API endpoints for MinIO
 """
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Response
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Response, Depends
 from typing import Dict, Any, Optional
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import logging
 
-from ....services.storage_service import get_storage_service
+from app.services.storage_service import get_storage_service
+from app.db.session import get_db
+from app.api.dependencies import get_optional_current_user
+from app.models.schemas import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,7 +31,10 @@ class CopyObjectRequest(BaseModel):
 
 
 @router.get("/buckets")
-async def list_buckets() -> Dict[str, Any]:
+async def list_buckets(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """List all buckets"""
     try:
         service = get_storage_service()
@@ -43,7 +50,11 @@ async def list_buckets() -> Dict[str, Any]:
 
 
 @router.post("/buckets")
-async def create_bucket(request: CreateBucketRequest) -> Dict[str, Any]:
+async def create_bucket(
+    request: CreateBucketRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Create a new bucket"""
     try:
         service = get_storage_service()
@@ -58,7 +69,11 @@ async def create_bucket(request: CreateBucketRequest) -> Dict[str, Any]:
 
 
 @router.delete("/buckets/{bucket_name}")
-async def delete_bucket(bucket_name: str) -> Dict[str, Any]:
+async def delete_bucket(
+    bucket_name: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Delete a bucket"""
     try:
         service = get_storage_service()
@@ -75,7 +90,11 @@ async def delete_bucket(bucket_name: str) -> Dict[str, Any]:
 
 
 @router.get("/buckets/{bucket_name}/stats")
-async def get_bucket_stats(bucket_name: str) -> Dict[str, Any]:
+async def get_bucket_stats(
+    bucket_name: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Get statistics for a bucket"""
     try:
         service = get_storage_service()
@@ -95,7 +114,9 @@ async def get_bucket_stats(bucket_name: str) -> Dict[str, Any]:
 async def list_objects(
     bucket_name: str,
     prefix: str = Query("", description="Object prefix to filter by"),
-    recursive: bool = Query(False, description="List recursively")
+    recursive: bool = Query(False, description="List recursively"),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ) -> Dict[str, Any]:
     """List objects in a bucket"""
     try:
@@ -116,7 +137,12 @@ async def list_objects(
 
 
 @router.get("/buckets/{bucket_name}/objects/{object_path:path}/info")
-async def get_object_info(bucket_name: str, object_path: str) -> Dict[str, Any]:
+async def get_object_info(
+    bucket_name: str,
+    object_path: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Get detailed information about an object"""
     try:
         service = get_storage_service()
@@ -137,7 +163,9 @@ async def get_object_info(bucket_name: str, object_path: str) -> Dict[str, Any]:
 async def get_object_url(
     bucket_name: str,
     object_path: str,
-    expiry: int = Query(3600, ge=60, le=604800, description="URL expiry in seconds")
+    expiry: int = Query(3600, ge=60, le=604800, description="URL expiry in seconds"),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ) -> Dict[str, Any]:
     """Get a presigned URL for an object"""
     try:
@@ -161,7 +189,9 @@ async def get_object_url(
 async def upload_object(
     bucket_name: str,
     object_path: str,
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ) -> Dict[str, Any]:
     """Upload an object to a bucket"""
     try:
@@ -185,7 +215,12 @@ async def upload_object(
 
 
 @router.get("/buckets/{bucket_name}/objects/{object_path:path}/download")
-async def download_object(bucket_name: str, object_path: str) -> Response:
+async def download_object(
+    bucket_name: str,
+    object_path: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Response:
     """Download an object from a bucket"""
     try:
         service = get_storage_service()
@@ -209,7 +244,12 @@ async def download_object(bucket_name: str, object_path: str) -> Response:
 
 
 @router.delete("/buckets/{bucket_name}/objects/{object_path:path}")
-async def delete_object(bucket_name: str, object_path: str) -> Dict[str, Any]:
+async def delete_object(
+    bucket_name: str,
+    object_path: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Delete an object from a bucket"""
     try:
         service = get_storage_service()
@@ -226,7 +266,11 @@ async def delete_object(bucket_name: str, object_path: str) -> Dict[str, Any]:
 
 
 @router.post("/objects/copy")
-async def copy_object(request: CopyObjectRequest) -> Dict[str, Any]:
+async def copy_object(
+    request: CopyObjectRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Copy an object from one location to another"""
     try:
         service = get_storage_service()

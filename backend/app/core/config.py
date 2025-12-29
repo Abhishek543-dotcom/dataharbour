@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "CHANGE_ME")
     POSTGRES_DB: str = "airflow"
 
+    # DataHarbour Database (separate from Airflow)
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        f"postgresql://{os.getenv('POSTGRES_USER', 'admin')}:{os.getenv('POSTGRES_PASSWORD', 'CHANGE_ME')}@postgres:5432/dataharbour"
+    )
+
     # MinIO Configuration
     MINIO_ENDPOINT: str = "minio:9000"
     MINIO_ACCESS_KEY: str = os.getenv("MINIO_ROOT_USER", "CHANGE_ME")
@@ -44,6 +50,15 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     API_KEY: Optional[str] = os.getenv("API_KEY")
+
+    # JWT Authentication
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+    # Auth Features
+    ENABLE_AUTH: bool = os.getenv("ENABLE_AUTH", "true").lower() == "true"
+    ENABLE_REGISTRATION: bool = os.getenv("ENABLE_REGISTRATION", "true").lower() == "true"
 
     # Docker
     DOCKER_HOST: str = "unix:///var/run/docker.sock"

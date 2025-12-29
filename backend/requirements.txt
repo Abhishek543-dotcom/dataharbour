@@ -2,6 +2,7 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
+email-validator==2.1.0
 python-multipart==0.0.6
 websockets==12.0
 aiofiles==23.2.1
@@ -17,6 +18,7 @@ requests==2.31.0
 # Database
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.23
+alembic==1.13.1
 
 # MinIO
 minio==7.2.0

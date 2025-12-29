@@ -1,9 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
+from sqlalchemy.orm import Session
 import logging
 
-from app.models.schemas import Job, JobDetails, JobCreate, JobFilter, JobStatus, APIResponse
+from app.models.schemas import Job, JobDetails, JobCreate, JobFilter, JobStatus, APIResponse, User
 from app.services.job_service import job_service
+from app.db.session import get_db
+from app.api.dependencies import get_optional_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -13,12 +16,15 @@ logger = logging.getLogger(__name__)
 async def get_jobs(
     status: Optional[JobStatus] = None,
     cluster: Optional[str] = None,
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
     """Get all jobs with optional filtering"""
     try:
         filter_params = JobFilter(status=status, cluster=cluster, search=search)
-        jobs = await job_service.get_all_jobs(filter_params)
+        user_id = str(current_user.id) if current_user else None
+        jobs = await job_service.get_all_jobs(db, filter_params, user_id)
         return jobs
     except Exception as e:
         logger.error(f"Error getting jobs: {e}")
@@ -26,10 +32,13 @@ async def get_jobs(
 
 
 @router.get("/{job_id}", response_model=JobDetails)
-async def get_job(job_id: str):
+async def get_job(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
     """Get specific job details"""
     try:
-        job = await job_service.get_job(job_id)
+        job = await job_service.get_job(db, job_id)
         if not job:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
         return job
@@ -41,10 +50,15 @@ async def get_job(job_id: str):
 
 
 @router.post("/", response_model=JobDetails)
-async def create_job(job_data: JobCreate):
+async def create_job(
+    job_data: JobCreate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
     """Submit a new Spark job"""
     try:
-        job = await job_service.create_job(job_data)
+        user_id = str(current_user.id) if current_user else None
+        job = await job_service.create_job(db, job_data, user_id)
         return job
     except Exception as e:
         logger.error(f"Error creating job: {e}")
@@ -52,10 +66,13 @@ async def create_job(job_data: JobCreate):
 
 
 @router.post("/{job_id}/kill", response_model=APIResponse)
-async def kill_job(job_id: str):
+async def kill_job(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
     """Kill a running job"""
     try:
-        success = await job_service.kill_job(job_id)
+        success = await job_service.kill_job(db, job_id)
         if not success:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
@@ -71,10 +88,15 @@ async def kill_job(job_id: str):
 
 
 @router.post("/{job_id}/restart", response_model=JobDetails)
-async def restart_job(job_id: str):
+async def restart_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
     """Restart a job"""
     try:
-        job = await job_service.restart_job(job_id)
+        user_id = str(current_user.id) if current_user else None
+        job = await job_service.restart_job(db, job_id, user_id)
         return job
     except Exception as e:
         logger.error(f"Error restarting job {job_id}: {e}")
@@ -82,10 +104,13 @@ async def restart_job(job_id: str):
 
 
 @router.get("/{job_id}/logs")
-async def get_job_logs(job_id: str):
+async def get_job_logs(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
     """Get job logs"""
     try:
-        logs = await job_service.get_job_logs(job_id)
+        logs = await job_service.get_job_logs(db, job_id)
         return {"job_id": job_id, "logs": logs}
     except Exception as e:
         logger.error(f"Error getting logs for job {job_id}: {e}")
@@ -93,10 +118,13 @@ async def get_job_logs(job_id: str):
 
 
 @router.get("/{job_id}/spark-ui")
-async def get_spark_ui(job_id: str):
+async def get_spark_ui(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
     """Get Spark UI URL for job"""
     try:
-        job = await job_service.get_job(job_id)
+        job = await job_service.get_job(db, job_id)
         if not job:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 

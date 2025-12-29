@@ -4,9 +4,12 @@ from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark import SparkContext, SparkConf
 import uuid
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.schemas import Cluster, ClusterStatus, ClusterCreate
+from app.db.repositories.cluster_repository import ClusterRepository
+from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -14,33 +17,52 @@ logger = logging.getLogger(__name__)
 class SparkService:
     def __init__(self):
         self._spark_session: Optional[SparkSession] = None
-        self._clusters: Dict[str, Cluster] = {}
-        self._initialize_default_cluster()
+        self.repository = ClusterRepository()
 
-    def _initialize_default_cluster(self):
-        """Initialize default Spark cluster"""
+    def ensure_default_cluster(self, db: Session) -> None:
+        """Ensure default Spark cluster exists in database"""
         try:
-            default_cluster = Cluster(
-                id="spark-cluster-default",
-                name="Default Spark Cluster",
-                status=ClusterStatus.RUNNING,
-                master_url=settings.SPARK_MASTER_URL,
-                ui_url=settings.SPARK_UI_URL,
-                worker_nodes=2,
-                total_cores=4,
-                total_memory="4g",
-                created_at=datetime.now()
-            )
-            self._clusters[default_cluster.id] = default_cluster
+            default_cluster = self.repository.get_by_id(db, "spark-cluster-default")
+            if not default_cluster:
+                cluster_dict = {
+                    "id": "spark-cluster-default",
+                    "name": "Default Spark Cluster",
+                    "status": ClusterStatus.RUNNING.value,
+                    "master_url": settings.SPARK_MASTER_URL,
+                    "ui_url": settings.SPARK_UI_URL,
+                    "worker_nodes": 2,
+                    "total_cores": 4,
+                    "total_memory": "4g",
+                    "config": {}
+                }
+                self.repository.create(db, cluster_dict)
+                logger.info("Default cluster created in database")
         except Exception as e:
-            logger.error(f"Error initializing default cluster: {e}")
+            logger.error(f"Error ensuring default cluster: {e}")
 
-    def get_spark_session(self, cluster_id: Optional[str] = None) -> SparkSession:
+    def _cluster_db_to_schema(self, cluster_db) -> Cluster:
+        """Convert database model to Cluster schema"""
+        return Cluster(
+            id=cluster_db.id,
+            name=cluster_db.name,
+            status=ClusterStatus(cluster_db.status),
+            master_url=cluster_db.master_url,
+            ui_url=cluster_db.ui_url,
+            worker_nodes=cluster_db.worker_nodes,
+            total_cores=cluster_db.total_cores,
+            total_memory=cluster_db.total_memory,
+            created_at=cluster_db.created_at
+        )
+
+    def get_spark_session(self, db: Session, cluster_id: Optional[str] = None) -> SparkSession:
         """Get or create Spark session"""
         try:
             if self._spark_session is None:
-                cluster = self._clusters.get(cluster_id or "spark-cluster-default")
-                master_url = cluster.master_url if cluster else settings.SPARK_MASTER_URL
+                # Ensure default cluster exists
+                self.ensure_default_cluster(db)
+
+                cluster_db = self.repository.get_by_id(db, cluster_id or "spark-cluster-default")
+                master_url = cluster_db.master_url if cluster_db else settings.SPARK_MASTER_URL
 
                 self._spark_session = SparkSession.builder \
                     .appName("DataHarbour") \
@@ -61,40 +83,66 @@ class SparkService:
             logger.error(f"Error creating Spark session: {e}")
             raise
 
-    async def get_clusters(self) -> List[Cluster]:
+    async def get_clusters(self, db: Session, user_id: Optional[str] = None) -> List[Cluster]:
         """Get all Spark clusters"""
-        return list(self._clusters.values())
+        # Ensure default cluster exists
+        self.ensure_default_cluster(db)
 
-    async def get_cluster(self, cluster_id: str) -> Optional[Cluster]:
+        if user_id:
+            clusters_db = self.repository.get_by_user(db, user_id, limit=1000)
+        else:
+            clusters_db = self.repository.get_all(db, limit=1000)
+
+        return [self._cluster_db_to_schema(c) for c in clusters_db]
+
+    async def get_cluster(self, db: Session, cluster_id: str) -> Optional[Cluster]:
         """Get specific cluster by ID"""
-        return self._clusters.get(cluster_id)
+        # Ensure default cluster exists
+        self.ensure_default_cluster(db)
 
-    async def create_cluster(self, cluster_data: ClusterCreate) -> Cluster:
+        cluster_db = self.repository.get_by_id(db, cluster_id)
+        if cluster_db:
+            return self._cluster_db_to_schema(cluster_db)
+        return None
+
+    async def create_cluster(
+        self,
+        db: Session,
+        cluster_data: ClusterCreate,
+        user_id: Optional[str] = None
+    ) -> Cluster:
         """Create a new Spark cluster"""
         try:
             cluster_id = f"spark-cluster-{uuid.uuid4().hex[:8]}"
 
-            # In a real implementation, this would start new Spark worker nodes
-            cluster = Cluster(
-                id=cluster_id,
-                name=cluster_data.name,
-                status=ClusterStatus.STARTING,
-                master_url=settings.SPARK_MASTER_URL,
-                ui_url=f"{settings.SPARK_UI_URL.replace('4040', str(4040 + len(self._clusters)))}",
-                worker_nodes=cluster_data.worker_nodes,
-                total_cores=cluster_data.worker_nodes * cluster_data.cores_per_node,
-                total_memory=f"{cluster_data.worker_nodes * int(cluster_data.memory_per_node[:-1])}{cluster_data.memory_per_node[-1]}",
-                created_at=datetime.now()
-            )
+            # Calculate cluster resources
+            total_cores = cluster_data.worker_nodes * cluster_data.cores_per_node
+            memory_value = int(cluster_data.memory_per_node[:-1])
+            memory_unit = cluster_data.memory_per_node[-1]
+            total_memory = f"{cluster_data.worker_nodes * memory_value}{memory_unit}"
 
-            self._clusters[cluster_id] = cluster
+            # In a real implementation, this would start new Spark worker nodes
+            cluster_dict = {
+                "id": cluster_id,
+                "name": cluster_data.name,
+                "status": ClusterStatus.STARTING.value,
+                "master_url": settings.SPARK_MASTER_URL,
+                "ui_url": f"{settings.SPARK_UI_URL.replace('4040', str(4040 + self.repository.count(db)))}",
+                "worker_nodes": cluster_data.worker_nodes,
+                "total_cores": total_cores,
+                "total_memory": total_memory,
+                "config": {},
+                "user_id": user_id
+            }
+
+            cluster_db = self.repository.create(db, cluster_dict)
 
             # Simulate cluster startup
             import asyncio
             asyncio.create_task(self._start_cluster(cluster_id))
 
             logger.info(f"Cluster {cluster_id} created")
-            return cluster
+            return self._cluster_db_to_schema(cluster_db)
         except Exception as e:
             logger.error(f"Error creating cluster: {e}")
             raise
@@ -104,26 +152,36 @@ class SparkService:
         import asyncio
         await asyncio.sleep(5)  # Simulate startup time
 
-        if cluster_id in self._clusters:
-            self._clusters[cluster_id].status = ClusterStatus.RUNNING
+        # Update cluster status in database
+        db = SessionLocal()
+        try:
+            self.repository.update(db, cluster_id, {"status": ClusterStatus.RUNNING.value})
             logger.info(f"Cluster {cluster_id} is now running")
+        finally:
+            db.close()
 
-    async def delete_cluster(self, cluster_id: str) -> bool:
+    async def delete_cluster(self, db: Session, cluster_id: str) -> bool:
         """Delete a cluster"""
         try:
             if cluster_id == "spark-cluster-default":
                 raise ValueError("Cannot delete default cluster")
 
-            if cluster_id in self._clusters:
-                self._clusters[cluster_id].status = ClusterStatus.STOPPING
-                # Simulate cleanup
-                import asyncio
-                await asyncio.sleep(2)
-                del self._clusters[cluster_id]
-                logger.info(f"Cluster {cluster_id} deleted")
-                return True
+            cluster_db = self.repository.get_by_id(db, cluster_id)
+            if not cluster_db:
+                return False
 
-            return False
+            # Update status to stopping
+            self.repository.update(db, cluster_id, {"status": ClusterStatus.STOPPING.value})
+
+            # Simulate cleanup
+            import asyncio
+            await asyncio.sleep(2)
+
+            # Delete from database
+            success = self.repository.delete(db, cluster_id)
+            if success:
+                logger.info(f"Cluster {cluster_id} deleted")
+            return success
         except Exception as e:
             logger.error(f"Error deleting cluster: {e}")
             raise
@@ -131,7 +189,12 @@ class SparkService:
     async def execute_code(self, code: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
         """Execute PySpark code on a cluster"""
         try:
-            spark = self.get_spark_session(cluster_id)
+            # Create temporary DB session for getting spark session
+            db = SessionLocal()
+            try:
+                spark = self.get_spark_session(db, cluster_id)
+            finally:
+                db.close()
 
             # Create a namespace for code execution
             namespace = {

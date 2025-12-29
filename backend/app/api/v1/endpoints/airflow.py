@@ -2,12 +2,16 @@
 Airflow API endpoints
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Dict, Any, Optional
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import logging
 
-from ....services.airflow_service import get_airflow_service
+from app.services.airflow_service import get_airflow_service
+from app.db.session import get_db
+from app.api.dependencies import get_optional_current_user
+from app.models.schemas import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,7 +23,10 @@ class TriggerDAGRequest(BaseModel):
 
 
 @router.get("/health")
-async def get_health() -> Dict[str, Any]:
+async def get_health(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Check Airflow health status"""
     try:
         service = get_airflow_service()
@@ -38,7 +45,10 @@ async def get_health() -> Dict[str, Any]:
 
 
 @router.get("/statistics")
-async def get_statistics() -> Dict[str, Any]:
+async def get_statistics(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Get overall Airflow statistics"""
     try:
         service = get_airflow_service()
@@ -56,7 +66,9 @@ async def get_statistics() -> Dict[str, Any]:
 async def list_dags(
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    only_active: bool = Query(True)
+    only_active: bool = Query(True),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ) -> Dict[str, Any]:
     """List all DAGs"""
     try:
@@ -72,7 +84,11 @@ async def list_dags(
 
 
 @router.get("/dags/{dag_id}")
-async def get_dag(dag_id: str) -> Dict[str, Any]:
+async def get_dag(
+    dag_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Get detailed information about a specific DAG"""
     try:
         service = get_airflow_service()
@@ -91,7 +107,9 @@ async def get_dag_runs(
     dag_id: str,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    state: Optional[str] = Query(None)
+    state: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ) -> Dict[str, Any]:
     """Get DAG runs for a specific DAG"""
     try:
@@ -107,7 +125,12 @@ async def get_dag_runs(
 
 
 @router.post("/dags/{dag_id}/trigger")
-async def trigger_dag(dag_id: str, request: TriggerDAGRequest) -> Dict[str, Any]:
+async def trigger_dag(
+    dag_id: str,
+    request: TriggerDAGRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Trigger a new DAG run"""
     try:
         service = get_airflow_service()
@@ -123,7 +146,11 @@ async def trigger_dag(dag_id: str, request: TriggerDAGRequest) -> Dict[str, Any]
 
 
 @router.post("/dags/{dag_id}/pause")
-async def pause_dag(dag_id: str) -> Dict[str, Any]:
+async def pause_dag(
+    dag_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Pause a DAG"""
     try:
         service = get_airflow_service()
@@ -139,7 +166,11 @@ async def pause_dag(dag_id: str) -> Dict[str, Any]:
 
 
 @router.post("/dags/{dag_id}/unpause")
-async def unpause_dag(dag_id: str) -> Dict[str, Any]:
+async def unpause_dag(
+    dag_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Unpause a DAG"""
     try:
         service = get_airflow_service()
@@ -155,7 +186,12 @@ async def unpause_dag(dag_id: str) -> Dict[str, Any]:
 
 
 @router.get("/dags/{dag_id}/runs/{dag_run_id}/tasks")
-async def get_task_instances(dag_id: str, dag_run_id: str) -> Dict[str, Any]:
+async def get_task_instances(
+    dag_id: str,
+    dag_run_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Get task instances for a specific DAG run"""
     try:
         service = get_airflow_service()
@@ -175,7 +211,9 @@ async def get_task_logs(
     dag_id: str,
     dag_run_id: str,
     task_id: str,
-    try_number: int = Query(1, ge=1)
+    try_number: int = Query(1, ge=1),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ) -> Dict[str, Any]:
     """Get logs for a specific task instance"""
     try:

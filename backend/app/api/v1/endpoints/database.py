@@ -2,12 +2,16 @@
 Database API endpoints
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Dict, Any, Optional
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import logging
 
-from ....services.database_service import get_database_service
+from app.services.database_service import get_database_service
+from app.db.session import get_db
+from app.api.dependencies import get_optional_current_user
+from app.models.schemas import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -20,7 +24,10 @@ class QueryRequest(BaseModel):
 
 
 @router.get("/databases")
-async def list_databases() -> Dict[str, Any]:
+async def list_databases(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """List all databases"""
     try:
         service = get_database_service()
@@ -36,7 +43,11 @@ async def list_databases() -> Dict[str, Any]:
 
 
 @router.get("/databases/{database}/tables")
-async def list_tables(database: str) -> Dict[str, Any]:
+async def list_tables(
+    database: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """List all tables in a database"""
     try:
         service = get_database_service()
@@ -53,7 +64,13 @@ async def list_tables(database: str) -> Dict[str, Any]:
 
 
 @router.get("/databases/{database}/tables/{schema}/{table}/schema")
-async def get_table_schema(database: str, schema: str, table: str) -> Dict[str, Any]:
+async def get_table_schema(
+    database: str,
+    schema: str,
+    table: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Get detailed schema information for a table"""
     try:
         service = get_database_service()
@@ -73,7 +90,9 @@ async def preview_table_data(
     schema: str,
     table: str,
     limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ) -> Dict[str, Any]:
     """Preview data from a table"""
     try:
@@ -92,7 +111,12 @@ async def preview_table_data(
 
 
 @router.post("/databases/{database}/query")
-async def execute_query(database: str, request: QueryRequest) -> Dict[str, Any]:
+async def execute_query(
+    database: str,
+    request: QueryRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
     """Execute a SELECT query"""
     try:
         service = get_database_service()

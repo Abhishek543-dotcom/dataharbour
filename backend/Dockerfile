@@ -23,11 +23,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app /app/app
 
-# Create data directory for notebooks
-RUN mkdir -p /data/notebooks
+# Copy Alembic configuration and migrations
+COPY alembic.ini /app/
+COPY alembic /app/alembic
+
+# Create data directories
+RUN mkdir -p /data/notebooks /data/logs
 
 # Expose port
 EXPOSE 8000
 
 # Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["sh", "-c", "echo 'Waiting for PostgreSQL...' && sleep 10 && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
