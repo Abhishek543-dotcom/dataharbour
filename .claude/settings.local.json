@@ -17,7 +17,8 @@
       "Bash(podman exec:*)",
       "Bash(podman compose:*)",
       "Bash(docker-compose up:*)",
-      "Bash(docker-compose build:*)"
+      "Bash(docker-compose build:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

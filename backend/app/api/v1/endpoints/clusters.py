@@ -35,8 +35,7 @@ async def get_cluster(
 ):
     """Get specific cluster details"""
     try:
-        user_id = str(current_user.id) if current_user else None
-        cluster = await spark_service.get_cluster(db, cluster_id, user_id)
+        cluster = await spark_service.get_cluster(db, cluster_id)
         if not cluster:
             raise HTTPException(status_code=404, detail=f"Cluster {cluster_id} not found")
         return cluster
@@ -86,4 +85,21 @@ async def delete_cluster(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error deleting cluster {cluster_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{cluster_id}/metrics")
+async def get_cluster_metrics(
+    cluster_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """Get detailed metrics for a cluster"""
+    try:
+        metrics = await spark_service.get_cluster_metrics(db, cluster_id)
+        return metrics
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting cluster metrics for {cluster_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

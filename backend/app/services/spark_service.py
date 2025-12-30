@@ -186,6 +186,83 @@ class SparkService:
             logger.error(f"Error deleting cluster: {e}")
             raise
 
+    async def get_cluster_metrics(self, db: Session, cluster_id: str) -> Dict[str, Any]:
+        """Get detailed metrics for a running cluster"""
+        try:
+            cluster_db = self.repository.get_by_id(db, cluster_id)
+            if not cluster_db:
+                raise ValueError(f"Cluster {cluster_id} not found")
+
+            metrics = {
+                "cluster_id": cluster_id,
+                "name": cluster_db.name,
+                "status": cluster_db.status,
+                "master_url": cluster_db.master_url,
+                "ui_url": cluster_db.ui_url,
+                "worker_nodes": cluster_db.worker_nodes,
+                "total_cores": cluster_db.total_cores,
+                "total_memory": cluster_db.total_memory,
+                "created_at": cluster_db.created_at.isoformat() if cluster_db.created_at else None,
+                "uptime": None,
+                "applications": [],
+                "executors": [],
+                "resources": {
+                    "cores_used": 0,
+                    "cores_available": cluster_db.total_cores,
+                    "memory_used": "0g",
+                    "memory_available": cluster_db.total_memory
+                }
+            }
+
+            # Calculate uptime if cluster is running
+            if cluster_db.status == ClusterStatus.RUNNING.value and cluster_db.created_at:
+                uptime_seconds = (datetime.now() - cluster_db.created_at).total_seconds()
+                hours = int(uptime_seconds // 3600)
+                minutes = int((uptime_seconds % 3600) // 60)
+                metrics["uptime"] = f"{hours}h {minutes}m"
+
+            # Try to get real Spark metrics if session is active
+            try:
+                spark = self.get_spark_session(db, cluster_id)
+                sc = spark.sparkContext
+
+                # Get application info
+                metrics["applications"].append({
+                    "id": sc.applicationId,
+                    "name": sc.appName,
+                    "status": "RUNNING",
+                    "start_time": None
+                })
+
+                # Get executor info from Spark
+                executor_info = sc._jsc.sc().statusTracker().getExecutorInfos()
+                for executor in executor_info:
+                    metrics["executors"].append({
+                        "id": executor.host(),
+                        "host": executor.host(),
+                        "cores": getattr(executor, 'totalCores', 0),
+                        "memory": "Unknown"
+                    })
+
+                # Update resource usage
+                if metrics["executors"]:
+                    metrics["resources"]["cores_used"] = sum(e.get("cores", 0) for e in metrics["executors"])
+
+            except Exception as e:
+                logger.warning(f"Could not get live Spark metrics: {e}")
+                # Provide default application info
+                metrics["applications"].append({
+                    "id": "N/A",
+                    "name": "DataHarbour",
+                    "status": "READY",
+                    "start_time": None
+                })
+
+            return metrics
+        except Exception as e:
+            logger.error(f"Error getting cluster metrics: {e}")
+            raise
+
     async def execute_code(self, code: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
         """Execute PySpark code on a cluster"""
         try:

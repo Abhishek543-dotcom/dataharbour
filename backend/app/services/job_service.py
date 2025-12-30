@@ -88,7 +88,7 @@ class JobService:
             job_id = f"job_{uuid.uuid4().hex[:12]}"
 
             cluster_id = job_data.cluster_id or "spark-cluster-default"
-            cluster = await spark_service.get_cluster(cluster_id)
+            cluster = await spark_service.get_cluster(db, cluster_id)
 
             if not cluster:
                 raise ValueError(f"Cluster {cluster_id} not found")

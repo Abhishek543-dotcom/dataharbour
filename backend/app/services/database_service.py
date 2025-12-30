@@ -255,6 +255,97 @@ class DatabaseService:
             logger.error(f"Error executing query: {str(e)}")
             raise
 
+    async def create_database(self, database_name: str) -> Dict[str, Any]:
+        """Create a new database"""
+        try:
+            # Validate database name (alphanumeric and underscores only)
+            import re
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', database_name):
+                raise ValueError("Database name must start with a letter or underscore and contain only alphanumeric characters and underscores")
+
+            # Connect to postgres database to create new database
+            conn = self._get_connection('postgres')
+            conn.autocommit = True
+            cur = conn.cursor()
+
+            # Create database
+            cur.execute(f'CREATE DATABASE {database_name}')
+
+            cur.close()
+            conn.close()
+
+            logger.info(f"Database '{database_name}' created successfully")
+            return {
+                'success': True,
+                'database': database_name,
+                'message': f"Database '{database_name}' created successfully"
+            }
+        except Exception as e:
+            logger.error(f"Error creating database: {str(e)}")
+            raise
+
+    async def create_table(
+        self,
+        database: str,
+        table_name: str,
+        schema: str = 'public',
+        columns: List[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Create a new table with specified columns"""
+        try:
+            if not columns:
+                raise ValueError("At least one column must be specified")
+
+            # Validate table name
+            import re
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
+                raise ValueError("Table name must start with a letter or underscore and contain only alphanumeric characters and underscores")
+
+            conn = self._get_connection(database)
+            cur = conn.cursor()
+
+            # Build CREATE TABLE statement
+            column_defs = []
+            for col in columns:
+                col_name = col['name']
+                col_type = col['type']
+                nullable = col.get('nullable', True)
+                primary_key = col.get('primary_key', False)
+
+                col_def = f"{col_name} {col_type}"
+                if primary_key:
+                    col_def += " PRIMARY KEY"
+                elif not nullable:
+                    col_def += " NOT NULL"
+
+                if 'default' in col and col['default']:
+                    col_def += f" DEFAULT {col['default']}"
+
+                column_defs.append(col_def)
+
+            create_query = f"""
+                CREATE TABLE {schema}.{table_name} (
+                    {', '.join(column_defs)}
+                )
+            """
+
+            cur.execute(create_query)
+            conn.commit()
+
+            cur.close()
+            conn.close()
+
+            logger.info(f"Table '{schema}.{table_name}' created successfully")
+            return {
+                'success': True,
+                'schema': schema,
+                'table': table_name,
+                'message': f"Table '{schema}.{table_name}' created successfully"
+            }
+        except Exception as e:
+            logger.error(f"Error creating table: {str(e)}")
+            raise
+
 
 # Singleton instance
 _database_service = None

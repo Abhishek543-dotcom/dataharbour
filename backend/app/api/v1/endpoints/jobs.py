@@ -137,3 +137,90 @@ async def get_spark_ui(
     except Exception as e:
         logger.error(f"Error getting Spark UI for job {job_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{job_id}/convert-to-dag")
+async def convert_job_to_dag(
+    job_id: str,
+    schedule_interval: Optional[str] = "0 0 * * *",
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """Convert a Spark job into an Airflow DAG for scheduling"""
+    try:
+        job = await job_service.get_job(db, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+        # Create DAG file from job
+        dag_id = f"spark_job_{job.name.lower().replace(' ', '_')}_{job_id[:8]}"
+        dag_file_path = f"/opt/airflow/dags/{dag_id}.py"
+
+        # Properly escape the job code for Python string
+        escaped_code = job.code.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+
+        dag_content = f'''"""
+Auto-generated Airflow DAG from Spark Job: {job.name}
+Job ID: {job_id}
+"""
+from datetime import datetime, timedelta
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+import requests
+
+default_args = {{
+    'owner': 'dataharbour',
+    'depends_on_past': False,
+    'start_date': datetime(2024, 1, 1),
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}}
+
+dag = DAG(
+    '{dag_id}',
+    default_args=default_args,
+    description='Spark Job: {job.name}',
+    schedule_interval='{schedule_interval}',
+    catchup=False,
+    tags=['spark', 'dataharbour', 'auto-generated'],
+)
+
+def execute_spark_job():
+    """Execute the Spark job via DataHarbour API"""
+    import requests
+    response = requests.post(
+        'http://backend:8000/api/v1/jobs',
+        json={{
+            'name': '{job.name}',
+            'code': "{escaped_code}",
+            'cluster_id': '{job.cluster}'
+        }}
+    )
+    if response.status_code != 200:
+        raise Exception(f"Job execution failed: {{response.text}}")
+    return response.json()
+
+execute_job_task = PythonOperator(
+    task_id='execute_spark_job',
+    python_callable=execute_spark_job,
+    dag=dag,
+)
+'''
+
+        # Write DAG file
+        import os
+        os.makedirs("/opt/airflow/dags", exist_ok=True)
+        with open(dag_file_path, 'w') as f:
+            f.write(dag_content)
+
+        return APIResponse(
+            success=True,
+            message=f"Job converted to DAG '{dag_id}'. It will appear in Airflow shortly."
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error converting job to DAG: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

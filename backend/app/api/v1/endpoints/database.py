@@ -23,6 +23,27 @@ class QueryRequest(BaseModel):
     limit: Optional[int] = 1000
 
 
+class DatabaseCreate(BaseModel):
+    """Request model for database creation"""
+    database_name: str
+
+
+class ColumnDefinition(BaseModel):
+    """Column definition for table creation"""
+    name: str
+    type: str
+    nullable: bool = True
+    primary_key: bool = False
+    default: Optional[str] = None
+
+
+class TableCreate(BaseModel):
+    """Request model for table creation"""
+    table_name: str
+    schema: str = 'public'
+    columns: List[ColumnDefinition]
+
+
 @router.get("/databases")
 async def list_databases(
     db: Session = Depends(get_db),
@@ -131,4 +152,47 @@ async def execute_query(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error executing query: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/databases")
+async def create_database(
+    request: DatabaseCreate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
+    """Create a new database"""
+    try:
+        service = get_database_service()
+        result = await service.create_database(request.database_name)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating database: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/databases/{database}/tables")
+async def create_table(
+    database: str,
+    request: TableCreate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Dict[str, Any]:
+    """Create a new table in the specified database"""
+    try:
+        service = get_database_service()
+        columns = [col.dict() for col in request.columns]
+        result = await service.create_table(
+            database=database,
+            table_name=request.table_name,
+            schema=request.schema,
+            columns=columns
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating table: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

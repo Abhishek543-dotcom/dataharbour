@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Database as DatabaseIcon, Table, Search, Play, Download, RefreshCw, ChevronRight } from 'lucide-react';
+import { Database as DatabaseIcon, Table, Search, Play, Download, RefreshCw, ChevronRight, Plus } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import Modal from '../components/ui/Modal';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -17,6 +18,17 @@ const Database = () => {
   const [queryMode, setQueryMode] = useState(false);
   const [query, setQuery] = useState('');
   const [queryResult, setQueryResult] = useState(null);
+
+  // Create Database Modal
+  const [showCreateDbModal, setShowCreateDbModal] = useState(false);
+  const [newDbName, setNewDbName] = useState('');
+
+  // Create Table Modal
+  const [showCreateTableModal, setShowCreateTableModal] = useState(false);
+  const [newTableName, setNewTableName] = useState('');
+  const [tableColumns, setTableColumns] = useState([
+    { name: 'id', type: 'SERIAL', nullable: false, primary_key: true, default: '' }
+  ]);
 
   useEffect(() => {
     fetchDatabases();
@@ -87,6 +99,63 @@ const Database = () => {
     }
   };
 
+  const handleCreateDatabase = async () => {
+    if (!newDbName.trim()) return;
+
+    setLoading(true);
+    try {
+      await axios.post(`${API_BASE}/database/databases`, {
+        database_name: newDbName.trim()
+      });
+      setNewDbName('');
+      setShowCreateDbModal(false);
+      fetchDatabases();
+      alert(`Database '${newDbName}' created successfully!`);
+    } catch (error) {
+      console.error('Error creating database:', error);
+      alert(error.response?.data?.detail || 'Failed to create database');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTable = async () => {
+    if (!newTableName.trim() || !selectedDatabase) return;
+
+    setLoading(true);
+    try {
+      await axios.post(`${API_BASE}/database/databases/${selectedDatabase}/tables`, {
+        table_name: newTableName.trim(),
+        schema: 'public',
+        columns: tableColumns
+      });
+      setNewTableName('');
+      setTableColumns([{ name: 'id', type: 'SERIAL', nullable: false, primary_key: true, default: '' }]);
+      setShowCreateTableModal(false);
+      fetchTables(selectedDatabase);
+      alert(`Table '${newTableName}' created successfully!`);
+    } catch (error) {
+      console.error('Error creating table:', error);
+      alert(error.response?.data?.detail || 'Failed to create table');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addColumn = () => {
+    setTableColumns([...tableColumns, { name: '', type: 'VARCHAR(255)', nullable: true, primary_key: false, default: '' }]);
+  };
+
+  const removeColumn = (index) => {
+    setTableColumns(tableColumns.filter((_, i) => i !== index));
+  };
+
+  const updateColumn = (index, field, value) => {
+    const updated = [...tableColumns];
+    updated[index][field] = value;
+    setTableColumns(updated);
+  };
+
   const exportToCSV = (data) => {
     if (!data || !data.rows || data.rows.length === 0) return;
 
@@ -138,7 +207,7 @@ const Database = () => {
         <div className="col-span-3">
           <Card className="h-full">
             <div className="p-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-gray-900">Databases</h3>
                 <Button
                   variant="secondary"
@@ -149,6 +218,14 @@ const Database = () => {
                   <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={() => setShowCreateDbModal(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Database
+              </Button>
             </div>
             <div className="p-2 space-y-1 max-h-[600px] overflow-y-auto">
               {databases.map((db) => (
@@ -182,15 +259,28 @@ const Database = () => {
               {selectedDatabase && (
                 <Card>
                   <div className="p-4 border-b border-gray-200">
-                    <h3 className="font-semibold text-gray-900">
-                      Tables in {selectedDatabase}
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900">
+                        Tables in {selectedDatabase}
+                      </h3>
+                      <Button
+                        size="sm"
+                        onClick={() => setShowCreateTableModal(true)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Table
+                      </Button>
+                    </div>
                   </div>
                   <div className="p-4">
                     {tables.length === 0 ? (
                       <div className="text-center py-12 text-gray-500">
                         <Table className="w-12 h-12 mx-auto mb-3 opacity-50" />
                         <p>No tables found in this database</p>
+                        <Button size="sm" className="mt-3" onClick={() => setShowCreateTableModal(true)}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create First Table
+                        </Button>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
@@ -339,7 +429,7 @@ const Database = () => {
                     disabled={!selectedDatabase || !query.trim() || loading}
                   >
                     <Play className="w-4 h-4 mr-2" />
-                    Execute Query
+                    {loading ? 'Executing...' : 'Execute Query'}
                   </Button>
                 </div>
               </div>
@@ -410,6 +500,143 @@ const Database = () => {
           )}
         </div>
       </div>
+
+      {/* Create Database Modal */}
+      <Modal
+        isOpen={showCreateDbModal}
+        onClose={() => {
+          setShowCreateDbModal(false);
+          setNewDbName('');
+        }}
+        title="Create New Database"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Database Name
+            </label>
+            <input
+              type="text"
+              value={newDbName}
+              onChange={(e) => setNewDbName(e.target.value)}
+              placeholder="my_database"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Must start with a letter or underscore, alphanumeric and underscores only
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowCreateDbModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleCreateDatabase} disabled={!newDbName.trim() || loading}>
+              {loading ? 'Creating...' : 'Create Database'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Create Table Modal */}
+      <Modal
+        isOpen={showCreateTableModal}
+        onClose={() => {
+          setShowCreateTableModal(false);
+          setNewTableName('');
+          setTableColumns([{ name: 'id', type: 'SERIAL', nullable: false, primary_key: true, default: '' }]);
+        }}
+        title={`Create New Table in ${selectedDatabase}`}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Table Name
+            </label>
+            <input
+              type="text"
+              value={newTableName}
+              onChange={(e) => setNewTableName(e.target.value)}
+              placeholder="my_table"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Columns
+              </label>
+              <Button size="sm" variant="secondary" onClick={addColumn}>
+                <Plus className="w-4 h-4 mr-1" />
+                Add Column
+              </Button>
+            </div>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {tableColumns.map((col, idx) => (
+                <div key={idx} className="flex gap-2 p-2 border border-gray-200 rounded-lg">
+                  <input
+                    type="text"
+                    value={col.name}
+                    onChange={(e) => updateColumn(idx, 'name', e.target.value)}
+                    placeholder="column_name"
+                    className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                  />
+                  <select
+                    value={col.type}
+                    onChange={(e) => updateColumn(idx, 'type', e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                  >
+                    <option value="SERIAL">SERIAL</option>
+                    <option value="INTEGER">INTEGER</option>
+                    <option value="BIGINT">BIGINT</option>
+                    <option value="VARCHAR(255)">VARCHAR(255)</option>
+                    <option value="TEXT">TEXT</option>
+                    <option value="BOOLEAN">BOOLEAN</option>
+                    <option value="TIMESTAMP">TIMESTAMP</option>
+                    <option value="DATE">DATE</option>
+                    <option value="NUMERIC">NUMERIC</option>
+                  </select>
+                  <label className="flex items-center text-xs">
+                    <input
+                      type="checkbox"
+                      checked={col.primary_key}
+                      onChange={(e) => updateColumn(idx, 'primary_key', e.target.checked)}
+                      className="mr-1"
+                    />
+                    PK
+                  </label>
+                  <label className="flex items-center text-xs">
+                    <input
+                      type="checkbox"
+                      checked={!col.nullable}
+                      onChange={(e) => updateColumn(idx, 'nullable', !e.target.checked)}
+                      className="mr-1"
+                    />
+                    NOT NULL
+                  </label>
+                  {idx > 0 && (
+                    <button
+                      onClick={() => removeColumn(idx)}
+                      className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="secondary" onClick={() => setShowCreateTableModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleCreateTable} disabled={!newTableName.trim() || loading}>
+              {loading ? 'Creating...' : 'Create Table'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

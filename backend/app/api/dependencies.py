@@ -11,8 +11,9 @@ from app.services.user_service import user_service
 from app.models.schemas import User
 from app.core.config import settings
 
-# Security scheme
+# Security schemes
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -79,7 +80,7 @@ async def get_current_superuser(
 
 async def get_optional_current_user(
     db: Session = Depends(get_db),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security)
 ) -> Optional[User]:
     """
     Dependency to optionally get current user (doesn't fail if not authenticated)
