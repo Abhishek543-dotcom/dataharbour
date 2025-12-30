@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Server, Plus, ExternalLink, Trash2, RefreshCw, Activity, Cpu, HardDrive, Clock, Zap } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -14,6 +15,7 @@ const Clusters = () => {
   const [selectedCluster, setSelectedCluster] = useState(null);
   const [clusterMetrics, setClusterMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [deletingCluster, setDeletingCluster] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCluster, setNewCluster] = useState({
     name: '',
@@ -59,27 +61,39 @@ const Clusters = () => {
 
   const handleCreateCluster = async () => {
     if (!newCluster.name.trim()) {
+      toast.error('Cluster name is required');
       return;
     }
 
     setLoading(true);
+    const loadingToast = toast.loading('Creating cluster...');
     try {
       const response = await clustersAPI.create(newCluster);
       setClusters([...clusters, response.data]);
       setNewCluster({ name: '', worker_nodes: 2, total_cores: 4, total_memory: '4g' });
       setShowCreateModal(false);
+      toast.dismiss(loadingToast);
+      toast.success(`Cluster "${newCluster.name}" created successfully!`);
     } catch (error) {
+      toast.dismiss(loadingToast);
       console.error('Failed to create cluster:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create cluster';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteCluster = async (id) => {
-    if (!confirm('Are you sure you want to delete this cluster?')) {
+    const cluster = clusters.find(c => c.id === id);
+    if (!cluster) return;
+
+    if (!confirm(`Are you sure you want to delete cluster "${cluster.name}"?`)) {
       return;
     }
 
+    setDeletingCluster(id);
+    const loadingToast = toast.loading('Deleting cluster...');
     try {
       await clustersAPI.delete(id);
       const updatedClusters = clusters.filter(c => c.id !== id);
@@ -87,8 +101,15 @@ const Clusters = () => {
       if (selectedCluster?.id === id) {
         setSelectedCluster(updatedClusters[0] || null);
       }
+      toast.dismiss(loadingToast);
+      toast.success(`Cluster "${cluster.name}" deleted successfully!`);
     } catch (error) {
+      toast.dismiss(loadingToast);
       console.error('Failed to delete cluster:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to delete cluster';
+      toast.error(errorMessage);
+    } finally {
+      setDeletingCluster(null);
     }
   };
 
@@ -201,9 +222,10 @@ const Clusters = () => {
                       <Button
                         variant="danger"
                         onClick={() => handleDeleteCluster(selectedCluster.id)}
+                        disabled={deletingCluster === selectedCluster.id}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
+                        {deletingCluster === selectedCluster.id ? 'Deleting...' : 'Delete'}
                       </Button>
                     )}
                   </div>

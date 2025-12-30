@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Workflow, Play, Pause, RefreshCw, Clock, CheckCircle, XCircle, Loader } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -23,16 +24,17 @@ const Airflow = () => {
 
   const fetchStatistics = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/airflow/statistics`);
+      const response = await axios.get(`${API_BASE}/airflow/statistics`, { timeout: 5000 });
       setStatistics(response.data);
     } catch (error) {
       console.error('Error fetching statistics:', error);
+      setStatistics(null);
     }
   };
 
   const fetchHealth = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/airflow/health`);
+      const response = await axios.get(`${API_BASE}/airflow/health`, { timeout: 5000 });
       setHealth(response.data);
     } catch (error) {
       console.error('Error fetching health:', error);
@@ -40,13 +42,22 @@ const Airflow = () => {
     }
   };
 
-  const fetchDags = async () => {
+  const fetchDags = async (showToast = false) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE}/airflow/dags?limit=100`);
+      const response = await axios.get(`${API_BASE}/airflow/dags?limit=100`, { timeout: 10000 });
       setDags(response.data.dags || []);
+      if (showToast) {
+        toast.success('DAGs refreshed successfully');
+      }
     } catch (error) {
       console.error('Error fetching DAGs:', error);
+      setDags([]);
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        toast.error('Airflow is taking too long to respond. It may be starting up.');
+      } else {
+        toast.error('Failed to fetch DAGs. Airflow may be unavailable.');
+      }
     } finally {
       setLoading(false);
     }
@@ -66,32 +77,50 @@ const Airflow = () => {
   };
 
   const triggerDag = async (dagId) => {
+    const loadingToast = toast.loading('Triggering DAG...');
     try {
-      await axios.post(`${API_BASE}/airflow/dags/${dagId}/trigger`, {});
+      await axios.post(`${API_BASE}/airflow/dags/${dagId}/trigger`, {}, { timeout: 10000 });
+      toast.dismiss(loadingToast);
+      toast.success(`DAG "${dagId}" triggered successfully!`);
       fetchDags();
       if (selectedDag === dagId) {
         fetchDagRuns(dagId);
       }
     } catch (error) {
+      toast.dismiss(loadingToast);
       console.error('Error triggering DAG:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to trigger DAG';
+      toast.error(errorMessage);
     }
   };
 
   const pauseDag = async (dagId) => {
+    const loadingToast = toast.loading('Pausing DAG...');
     try {
-      await axios.post(`${API_BASE}/airflow/dags/${dagId}/pause`);
+      await axios.post(`${API_BASE}/airflow/dags/${dagId}/pause`, {}, { timeout: 10000 });
+      toast.dismiss(loadingToast);
+      toast.success(`DAG "${dagId}" paused`);
       fetchDags();
     } catch (error) {
+      toast.dismiss(loadingToast);
       console.error('Error pausing DAG:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to pause DAG';
+      toast.error(errorMessage);
     }
   };
 
   const unpauseDag = async (dagId) => {
+    const loadingToast = toast.loading('Unpausing DAG...');
     try {
-      await axios.post(`${API_BASE}/airflow/dags/${dagId}/unpause`);
+      await axios.post(`${API_BASE}/airflow/dags/${dagId}/unpause`, {}, { timeout: 10000 });
+      toast.dismiss(loadingToast);
+      toast.success(`DAG "${dagId}" unpaused`);
       fetchDags();
     } catch (error) {
+      toast.dismiss(loadingToast);
       console.error('Error unpausing DAG:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to unpause DAG';
+      toast.error(errorMessage);
     }
   };
 
@@ -129,7 +158,7 @@ const Airflow = () => {
               <span className="text-sm font-medium">{health.status}</span>
             </div>
           )}
-          <Button variant="secondary" onClick={() => { fetchStatistics(); fetchDags(); fetchHealth(); }}>
+          <Button variant="secondary" onClick={() => { fetchStatistics(); fetchDags(true); fetchHealth(); }}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -205,7 +234,19 @@ const Airflow = () => {
               <h3 className="font-semibold text-gray-900">DAGs</h3>
             </div>
             <div className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
-              {dags.map((dag) => (
+              {loading && dags.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <Loader className="w-12 h-12 mx-auto mb-3 opacity-50 animate-spin" />
+                  <p>Loading DAGs...</p>
+                </div>
+              ) : dags.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <Workflow className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg mb-2">No DAGs found</p>
+                  <p className="text-sm">Create a job and schedule it as a DAG from the Jobs page</p>
+                </div>
+              ) : (
+                dags.map((dag) => (
                 <div
                   key={dag.dag_id}
                   className={`p-4 cursor-pointer transition-colors ${
@@ -257,7 +298,8 @@ const Airflow = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </Card>
         </div>
