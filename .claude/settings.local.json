@@ -20,7 +20,8 @@
       "Bash(docker-compose build:*)",
       "Bash(grep:*)",
       "Bash(podman run:*)",
-      "Bash(python -m json.tool:*)"
+      "Bash(python -m json.tool:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
