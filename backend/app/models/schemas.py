@@ -84,7 +84,7 @@ class CellExecuteResponse(BaseModel):
 
 # Jobs
 class JobCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     code: str
     cluster_id: Optional[str] = None
     config: Optional[Dict[str, Any]] = {}
