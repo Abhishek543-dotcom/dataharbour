@@ -1,15 +1,16 @@
-from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime, timedelta
-from typing import List, Optional
-from sqlalchemy.orm import Session
 import logging
+from datetime import datetime, timedelta
+from typing import Optional
 
-from app.models.schemas import DashboardStats, JobTrends, APIResponse, User
-from app.services.spark_service import spark_service
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.api.dependencies import get_optional_current_user
+from app.db.session import get_db
+from app.models.schemas import DashboardStats, JobTrends, User
 from app.services.job_service import job_service
 from app.services.notebook_service import notebook_service
-from app.db.session import get_db
-from app.api.dependencies import get_optional_current_user
+from app.services.spark_service import spark_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 @router.get("/stats", response_model=DashboardStats)
 async def get_dashboard_stats(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get overall dashboard statistics"""
     try:
@@ -44,7 +45,7 @@ async def get_dashboard_stats(
             active_clusters=active_clusters,
             running_jobs=running_jobs,
             completed_jobs=completed_jobs,
-            failed_jobs=failed_jobs
+            failed_jobs=failed_jobs,
         )
     except Exception as e:
         logger.error(f"Error getting dashboard stats: {e}")
@@ -54,7 +55,7 @@ async def get_dashboard_stats(
 @router.get("/trends", response_model=JobTrends)
 async def get_job_trends(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get job completion trends for the last 7 days"""
     try:
@@ -75,11 +76,7 @@ async def get_job_trends(
             completed.append(len([j for j in day_jobs if j.status == "completed"]))
             failed.append(len([j for j in day_jobs if j.status == "failed"]))
 
-        return JobTrends(
-            labels=labels,
-            completed=completed,
-            failed=failed
-        )
+        return JobTrends(labels=labels, completed=completed, failed=failed)
     except Exception as e:
         logger.error(f"Error getting job trends: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -88,18 +85,14 @@ async def get_job_trends(
 @router.get("/overview")
 async def get_overview(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get complete dashboard overview"""
     try:
         stats = await get_dashboard_stats(db, current_user)
         trends = await get_job_trends(db, current_user)
 
-        return {
-            "stats": stats,
-            "trends": trends,
-            "timestamp": datetime.now()
-        }
+        return {"stats": stats, "trends": trends, "timestamp": datetime.now()}
     except Exception as e:
         logger.error(f"Error getting overview: {e}")
         raise HTTPException(status_code=500, detail=str(e))

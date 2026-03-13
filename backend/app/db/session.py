@@ -1,26 +1,26 @@
 """
 Database session management
 """
+from typing import Generator
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from typing import Generator
+
 from app.core.config import settings
 
+kwargs = {
+    "pool_pre_ping": True,  # Verify connections before using
+    "echo": settings.ENVIRONMENT == "development",  # Log SQL queries in development
+}
+if not settings.DATABASE_URL.startswith("sqlite"):
+    kwargs["pool_size"] = 5
+    kwargs["max_overflow"] = 10
+
 # Create SQLAlchemy engine
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before using
-    pool_size=5,  # Connection pool size
-    max_overflow=10,  # Max connections beyond pool_size
-    echo=settings.ENVIRONMENT == "development",  # Log SQL queries in development
-)
+engine = create_engine(settings.DATABASE_URL, **kwargs)
 
 # Create session factory
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db() -> Generator:

@@ -1,22 +1,22 @@
+import logging
+import os
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.staticfiles import StaticFiles
-import logging
-import os
 
 from app.api.v1 import router as api_router
 from app.core.config import settings
 from app.core.websocket_manager import manager
+from app.middleware.audit_log import AuditLogMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.middleware.audit_log import AuditLogMiddleware
 
 # Configure logging
 log_level = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(
     level=getattr(logging, log_level),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ app = FastAPI(
 if settings.ENVIRONMENT == "production":
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["dataharbour.local", "localhost", "127.0.0.1"]
+        allowed_hosts=["dataharbour.local", "localhost", "127.0.0.1"],
     )
 
 # 2. Security Headers Middleware
@@ -65,24 +65,23 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
 
+
 @app.get("/")
 async def root():
     return {
         "message": "DataHarbour Backend API",
         "version": settings.VERSION,
-        "docs_url": "/docs"
+        "docs_url": "/docs",
     }
+
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
-        "services": {
-            "api": "running",
-            "spark": "connected",
-            "airflow": "connected"
-        }
+        "services": {"api": "running", "spark": "connected", "airflow": "connected"},
     }
+
 
 # WebSocket endpoint for real-time updates
 @app.websocket("/ws/{client_id}")
@@ -98,11 +97,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         manager.disconnect(client_id)
         logger.info(f"Client {client_id} disconnected")
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
+
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

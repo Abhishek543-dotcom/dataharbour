@@ -2,16 +2,17 @@
 Storage API endpoints for MinIO
 """
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Response, Depends
-from typing import Dict, Any, Optional
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
 import logging
+from typing import Any, Dict, Optional
 
-from app.services.storage_service import get_storage_service
-from app.db.session import get_db
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from app.api.dependencies import get_optional_current_user
+from app.db.session import get_db
 from app.models.schemas import User
+from app.services.storage_service import get_storage_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,11 +20,13 @@ router = APIRouter()
 
 class CreateBucketRequest(BaseModel):
     """Request model for creating a bucket"""
+
     bucket_name: str
 
 
 class CopyObjectRequest(BaseModel):
     """Request model for copying an object"""
+
     source_bucket: str
     source_object: str
     dest_bucket: str
@@ -33,17 +36,13 @@ class CopyObjectRequest(BaseModel):
 @router.get("/buckets")
 async def list_buckets(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """List all buckets"""
     try:
         service = get_storage_service()
         buckets = await service.list_buckets()
-        return {
-            'success': True,
-            'buckets': buckets,
-            'count': len(buckets)
-        }
+        return {"success": True, "buckets": buckets, "count": len(buckets)}
     except Exception as e:
         logger.error(f"Error listing buckets: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -53,16 +52,13 @@ async def list_buckets(
 async def create_bucket(
     request: CreateBucketRequest,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """Create a new bucket"""
     try:
         service = get_storage_service()
         result = await service.create_bucket(request.bucket_name)
-        return {
-            'success': True,
-            **result
-        }
+        return {"success": True, **result}
     except Exception as e:
         logger.error(f"Error creating bucket: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -72,16 +68,13 @@ async def create_bucket(
 async def delete_bucket(
     bucket_name: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """Delete a bucket"""
     try:
         service = get_storage_service()
         result = await service.delete_bucket(bucket_name)
-        return {
-            'success': True,
-            **result
-        }
+        return {"success": True, **result}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -93,16 +86,13 @@ async def delete_bucket(
 async def get_bucket_stats(
     bucket_name: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """Get statistics for a bucket"""
     try:
         service = get_storage_service()
         stats = await service.get_bucket_stats(bucket_name)
-        return {
-            'success': True,
-            **stats
-        }
+        return {"success": True, **stats}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -116,18 +106,18 @@ async def list_objects(
     prefix: str = Query("", description="Object prefix to filter by"),
     recursive: bool = Query(False, description="List recursively"),
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """List objects in a bucket"""
     try:
         service = get_storage_service()
         objects = await service.list_objects(bucket_name, prefix, recursive)
         return {
-            'success': True,
-            'bucket': bucket_name,
-            'prefix': prefix,
-            'objects': objects,
-            'count': len(objects)
+            "success": True,
+            "bucket": bucket_name,
+            "prefix": prefix,
+            "objects": objects,
+            "count": len(objects),
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -141,17 +131,13 @@ async def get_object_info(
     bucket_name: str,
     object_path: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """Get detailed information about an object"""
     try:
         service = get_storage_service()
         info = await service.get_object_info(bucket_name, object_path)
-        return {
-            'success': True,
-            'bucket': bucket_name,
-            **info
-        }
+        return {"success": True, "bucket": bucket_name, **info}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -165,18 +151,18 @@ async def get_object_url(
     object_path: str,
     expiry: int = Query(3600, ge=60, le=604800, description="URL expiry in seconds"),
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """Get a presigned URL for an object"""
     try:
         service = get_storage_service()
         url = await service.get_object_url(bucket_name, object_path, expiry)
         return {
-            'success': True,
-            'bucket': bucket_name,
-            'object': object_path,
-            'url': url,
-            'expiry': expiry
+            "success": True,
+            "bucket": bucket_name,
+            "object": object_path,
+            "url": url,
+            "expiry": expiry,
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -191,7 +177,7 @@ async def upload_object(
     object_path: str,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """Upload an object to a bucket"""
     try:
@@ -201,12 +187,9 @@ async def upload_object(
             bucket_name,
             object_path,
             data,
-            file.content_type or "application/octet-stream"
+            file.content_type or "application/octet-stream",
         )
-        return {
-            'success': True,
-            **result
-        }
+        return {"success": True, **result}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -219,7 +202,7 @@ async def download_object(
     bucket_name: str,
     object_path: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Response:
     """Download an object from a bucket"""
     try:
@@ -231,10 +214,10 @@ async def download_object(
 
         return Response(
             content=data,
-            media_type=info.get('content_type', 'application/octet-stream'),
+            media_type=info.get("content_type", "application/octet-stream"),
             headers={
-                'Content-Disposition': f'attachment; filename="{object_path.split("/")[-1]}"'
-            }
+                "Content-Disposition": f'attachment; filename="{object_path.split("/")[-1]}"'
+            },
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -248,16 +231,13 @@ async def delete_object(
     bucket_name: str,
     object_path: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """Delete an object from a bucket"""
     try:
         service = get_storage_service()
         result = await service.delete_object(bucket_name, object_path)
-        return {
-            'success': True,
-            **result
-        }
+        return {"success": True, **result}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -269,7 +249,7 @@ async def delete_object(
 async def copy_object(
     request: CopyObjectRequest,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
     """Copy an object from one location to another"""
     try:
@@ -278,12 +258,9 @@ async def copy_object(
             request.source_bucket,
             request.source_object,
             request.dest_bucket,
-            request.dest_object
+            request.dest_object,
         )
-        return {
-            'success': True,
-            **result
-        }
+        return {"success": True, **result}
     except Exception as e:
         logger.error(f"Error copying object: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

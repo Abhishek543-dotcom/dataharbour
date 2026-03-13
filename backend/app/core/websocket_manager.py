@@ -1,7 +1,8 @@
-from typing import Dict
-from fastapi import WebSocket
 import json
 import logging
+from typing import Dict
+
+from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
@@ -13,12 +14,16 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, client_id: str):
         await websocket.accept()
         self.active_connections[client_id] = websocket
-        logger.info(f"Client {client_id} connected. Total connections: {len(self.active_connections)}")
+        logger.info(
+            f"Client {client_id} connected. Total connections: {len(self.active_connections)}"
+        )
 
     def disconnect(self, client_id: str):
         if client_id in self.active_connections:
             del self.active_connections[client_id]
-            logger.info(f"Client {client_id} disconnected. Total connections: {len(self.active_connections)}")
+            logger.info(
+                f"Client {client_id} disconnected. Total connections: {len(self.active_connections)}"
+            )
 
     async def send_personal_message(self, message: str, client_id: str):
         if client_id in self.active_connections:
@@ -46,17 +51,11 @@ class ConnectionManager:
 
     async def broadcast_job_update(self, job_data: dict):
         """Broadcast job status update to all clients"""
-        await self.broadcast({
-            "type": "job_update",
-            "data": job_data
-        })
+        await self.broadcast({"type": "job_update", "data": job_data})
 
     async def broadcast_metrics_update(self, metrics_data: dict):
         """Broadcast system metrics update to all clients"""
-        await self.broadcast({
-            "type": "metrics_update",
-            "data": metrics_data
-        })
+        await self.broadcast({"type": "metrics_update", "data": metrics_data})
 
 
 manager = ConnectionManager()

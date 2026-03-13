@@ -1,7 +1,8 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
 import os
 import secrets
+from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -35,7 +36,8 @@ class Settings(BaseSettings):
     # DataHarbour Database (separate from Airflow)
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        f"postgresql://{os.getenv('POSTGRES_USER', 'admin')}:{os.getenv('POSTGRES_PASSWORD', 'CHANGE_ME')}@postgres:5432/dataharbour"
+        f"postgresql://{os.getenv('POSTGRES_USER', 'admin')}:"
+        f"{os.getenv('POSTGRES_PASSWORD', 'CHANGE_ME')}@postgres:5432/dataharbour",
     )
 
     # MinIO Configuration
@@ -54,11 +56,15 @@ class Settings(BaseSettings):
     # JWT Authentication
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
+        os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+    )
 
     # Auth Features
     ENABLE_AUTH: bool = os.getenv("ENABLE_AUTH", "true").lower() == "true"
-    ENABLE_REGISTRATION: bool = os.getenv("ENABLE_REGISTRATION", "true").lower() == "true"
+    ENABLE_REGISTRATION: bool = (
+        os.getenv("ENABLE_REGISTRATION", "true").lower() == "true"
+    )
 
     # Docker
     DOCKER_HOST: str = "unix:///var/run/docker.sock"
@@ -71,7 +77,9 @@ class Settings(BaseSettings):
     ENABLE_AUDIT_LOG: bool = os.getenv("ENABLE_AUDIT_LOG", "true").lower() == "true"
 
     # CORS
-    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5000")
+    ALLOWED_ORIGINS: str = os.getenv(
+        "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5000"
+    )
 
     class Config:
         case_sensitive = True
@@ -97,7 +105,9 @@ class Settings(BaseSettings):
             if warnings:
                 warning_msg = "\n".join(f"⚠️  {w}" for w in warnings)
                 print(f"\n🔴 SECURITY WARNINGS:\n{warning_msg}\n")
-                print("🔒 Please update these values in your .env file before production deployment!\n")
+                print(
+                    "🔒 Please update these values in your .env file before production deployment!\n"
+                )
 
 
 settings = Settings()

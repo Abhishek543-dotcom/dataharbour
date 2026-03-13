@@ -1,9 +1,10 @@
 """
 Base repository with generic CRUD operations
 """
-from typing import Generic, TypeVar, Type, Optional, List, Any, Dict
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+
 from sqlalchemy.orm import Session
-from sqlalchemy import select, update, delete
+
 from app.db.base import Base
 
 ModelType = TypeVar("ModelType", bound=Base)
@@ -31,7 +32,9 @@ class BaseRepository(Generic[ModelType]):
         db.refresh(db_obj)
         return db_obj
 
-    def update(self, db: Session, id: Any, obj_in: Dict[str, Any]) -> Optional[ModelType]:
+    def update(
+        self, db: Session, id: Any, obj_in: Dict[str, Any]
+    ) -> Optional[ModelType]:
         """Update a record by ID"""
         db_obj = self.get_by_id(db, id)
         if db_obj:

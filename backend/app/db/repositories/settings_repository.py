@@ -1,8 +1,10 @@
 """
 Settings repository for database operations
 """
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from sqlalchemy.orm import Session
+
 from app.db.repositories.base_repository import BaseRepository
 from app.models.db_models import UserSettings
 
@@ -19,17 +21,15 @@ class SettingsRepository(BaseRepository[UserSettings]):
 
     def create_default_settings(self, db: Session, user_id: str) -> UserSettings:
         """Create default settings for a new user"""
-        settings = self.model(
-            user_id=user_id,
-            theme="light",
-            preferences={}
-        )
+        settings = self.model(user_id=user_id, theme="light", preferences={})
         db.add(settings)
         db.commit()
         db.refresh(settings)
         return settings
 
-    def update_theme(self, db: Session, user_id: str, theme: str) -> Optional[UserSettings]:
+    def update_theme(
+        self, db: Session, user_id: str, theme: str
+    ) -> Optional[UserSettings]:
         """Update user's theme preference"""
         settings = self.get_by_user_id(db, user_id)
         if settings:
@@ -38,7 +38,9 @@ class SettingsRepository(BaseRepository[UserSettings]):
             db.refresh(settings)
         return settings
 
-    def update_preferences(self, db: Session, user_id: str, preferences: Dict[str, Any]) -> Optional[UserSettings]:
+    def update_preferences(
+        self, db: Session, user_id: str, preferences: Dict[str, Any]
+    ) -> Optional[UserSettings]:
         """Update user's preferences"""
         settings = self.get_by_user_id(db, user_id)
         if settings:

@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Optional
-from sqlalchemy.orm import Session
 import logging
+from typing import List, Optional
 
-from app.models.schemas import Cluster, ClusterCreate, APIResponse, User
-from app.services.spark_service import spark_service
-from app.db.session import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
 from app.api.dependencies import get_optional_current_user
+from app.db.session import get_db
+from app.models.schemas import APIResponse, Cluster, ClusterCreate, User
+from app.services.spark_service import spark_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 @router.get("/", response_model=List[Cluster])
 async def get_clusters(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get all Spark clusters"""
     try:
@@ -31,13 +32,15 @@ async def get_clusters(
 async def get_cluster(
     cluster_id: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get specific cluster details"""
     try:
         cluster = await spark_service.get_cluster(db, cluster_id)
         if not cluster:
-            raise HTTPException(status_code=404, detail=f"Cluster {cluster_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Cluster {cluster_id} not found"
+            )
         return cluster
     except HTTPException:
         raise
@@ -50,7 +53,7 @@ async def get_cluster(
 async def create_cluster(
     cluster_data: ClusterCreate,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Create a new Spark cluster"""
     try:
@@ -66,18 +69,19 @@ async def create_cluster(
 async def delete_cluster(
     cluster_id: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Delete a Spark cluster"""
     try:
         user_id = str(current_user.id) if current_user else None
         success = await spark_service.delete_cluster(db, cluster_id, user_id)
         if not success:
-            raise HTTPException(status_code=404, detail=f"Cluster {cluster_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Cluster {cluster_id} not found"
+            )
 
         return APIResponse(
-            success=True,
-            message=f"Cluster {cluster_id} deleted successfully"
+            success=True, message=f"Cluster {cluster_id} deleted successfully"
         )
     except HTTPException:
         raise
@@ -92,7 +96,7 @@ async def delete_cluster(
 async def get_cluster_metrics(
     cluster_id: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get detailed metrics for a cluster"""
     try:

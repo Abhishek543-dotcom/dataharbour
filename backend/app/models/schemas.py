@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 # Enums
@@ -84,7 +85,7 @@ class CellExecuteResponse(BaseModel):
 
 # Jobs
 class JobCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     code: str
     cluster_id: Optional[str] = None
     config: Optional[Dict[str, Any]] = {}

@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
-from typing import List, Optional
-from sqlalchemy.orm import Session
 import logging
+from typing import List, Optional
 
-from app.models.schemas import SystemMetrics, ServiceHealth, ServiceLog, User
-from app.services.monitoring_service import monitoring_service
-from app.db.session import get_db
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
 from app.api.dependencies import get_optional_current_user
+from app.db.session import get_db
+from app.models.schemas import ServiceHealth, ServiceLog, SystemMetrics, User
+from app.services.monitoring_service import monitoring_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 @router.get("/metrics", response_model=SystemMetrics)
 async def get_current_metrics(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get current system metrics"""
     try:
@@ -30,7 +31,7 @@ async def get_current_metrics(
 async def get_metrics_history(
     hours: int = Query(default=24, ge=1, le=168),
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get historical system metrics"""
     try:
@@ -44,7 +45,7 @@ async def get_metrics_history(
 @router.get("/services", response_model=List[ServiceHealth])
 async def get_services_health(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get health status of all services"""
     try:
@@ -60,7 +61,7 @@ async def get_service_logs(
     service_name: str,
     lines: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get logs from a specific service"""
     try:
@@ -74,7 +75,7 @@ async def get_service_logs(
 @router.get("/overview")
 async def get_monitoring_overview(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get complete monitoring overview"""
     try:
@@ -84,7 +85,7 @@ async def get_monitoring_overview(
         return {
             "metrics": metrics,
             "services": services,
-            "timestamp": metrics.timestamp
+            "timestamp": metrics.timestamp,
         }
     except Exception as e:
         logger.error(f"Error getting monitoring overview: {e}")

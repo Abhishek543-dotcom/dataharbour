@@ -3,10 +3,12 @@ Database service for PostgreSQL operations
 Provides database exploration, table browsing, and query execution
 """
 
+import logging
+from typing import Any, Dict, List, Optional
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from typing import List, Dict, Any, Optional
-import logging
+
 from ..core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -18,18 +20,18 @@ class DatabaseService:
 
     def __init__(self):
         self.connection_params = {
-            'host': settings.POSTGRES_HOST,
-            'port': settings.POSTGRES_PORT,
-            'user': settings.POSTGRES_USER,
-            'password': settings.POSTGRES_PASSWORD,
-            'database': settings.POSTGRES_DB
+            "host": settings.POSTGRES_HOST,
+            "port": settings.POSTGRES_PORT,
+            "user": settings.POSTGRES_USER,
+            "password": settings.POSTGRES_PASSWORD,
+            "database": settings.POSTGRES_DB,
         }
 
     def _get_connection(self, database: Optional[str] = None):
         """Create a database connection"""
         params = self.connection_params.copy()
         if database:
-            params['database'] = database
+            params["database"] = database
         return psycopg2.connect(**params)
 
     async def list_databases(self) -> List[Dict[str, Any]]:
@@ -92,7 +94,9 @@ class DatabaseService:
             logger.error(f"Error listing tables: {str(e)}")
             raise
 
-    async def get_table_schema(self, database: str, schema: str, table: str) -> Dict[str, Any]:
+    async def get_table_schema(
+        self, database: str, schema: str, table: str
+    ) -> Dict[str, Any]:
         """Get detailed schema information for a table"""
         try:
             conn = self._get_connection(database)
@@ -125,7 +129,7 @@ class DatabaseService:
             """
 
             cur.execute(pk_query, (f"{schema}.{table}",))
-            primary_keys = [row['column_name'] for row in cur.fetchall()]
+            primary_keys = [row["column_name"] for row in cur.fetchall()]
 
             # Get foreign key information
             fk_query = """
@@ -152,30 +156,25 @@ class DatabaseService:
             # Get row count
             count_query = f"SELECT COUNT(*) as count FROM {schema}.{table}"
             cur.execute(count_query)
-            row_count = cur.fetchone()['count']
+            row_count = cur.fetchone()["count"]
 
             cur.close()
             conn.close()
 
             return {
-                'schema': schema,
-                'table': table,
-                'columns': columns,
-                'primary_keys': primary_keys,
-                'foreign_keys': foreign_keys,
-                'row_count': row_count
+                "schema": schema,
+                "table": table,
+                "columns": columns,
+                "primary_keys": primary_keys,
+                "foreign_keys": foreign_keys,
+                "row_count": row_count,
             }
         except Exception as e:
             logger.error(f"Error getting table schema: {str(e)}")
             raise
 
     async def preview_table_data(
-        self,
-        database: str,
-        schema: str,
-        table: str,
-        limit: int = 100,
-        offset: int = 0
+        self, database: str, schema: str, table: str, limit: int = 100, offset: int = 0
     ) -> Dict[str, Any]:
         """Get preview data from a table"""
         try:
@@ -185,7 +184,7 @@ class DatabaseService:
             # Get total count
             count_query = f"SELECT COUNT(*) as count FROM {schema}.{table}"
             cur.execute(count_query)
-            total_count = cur.fetchone()['count']
+            total_count = cur.fetchone()["count"]
 
             # Get data
             data_query = f"""
@@ -203,38 +202,35 @@ class DatabaseService:
             conn.close()
 
             return {
-                'columns': columns,
-                'rows': rows,
-                'total_count': total_count,
-                'limit': limit,
-                'offset': offset
+                "columns": columns,
+                "rows": rows,
+                "total_count": total_count,
+                "limit": limit,
+                "offset": offset,
             }
         except Exception as e:
             logger.error(f"Error previewing table data: {str(e)}")
             raise
 
     async def execute_query(
-        self,
-        database: str,
-        query: str,
-        limit: int = 1000
+        self, database: str, query: str, limit: int = 1000
     ) -> Dict[str, Any]:
         """Execute a SELECT query (read-only)"""
         try:
             # Basic SQL injection prevention - only allow SELECT statements
             query_upper = query.strip().upper()
-            if not query_upper.startswith('SELECT'):
+            if not query_upper.startswith("SELECT"):
                 raise ValueError("Only SELECT queries are allowed")
 
             # Prevent multiple statements
-            if ';' in query[:-1]:  # Allow semicolon at the end
+            if ";" in query[:-1]:  # Allow semicolon at the end
                 raise ValueError("Multiple statements are not allowed")
 
             conn = self._get_connection(database)
             cur = conn.cursor(cursor_factory=RealDictCursor)
 
             # Add LIMIT if not present
-            if 'LIMIT' not in query_upper:
+            if "LIMIT" not in query_upper:
                 query = f"{query.rstrip(';')} LIMIT {limit}"
 
             cur.execute(query)
@@ -246,11 +242,7 @@ class DatabaseService:
             cur.close()
             conn.close()
 
-            return {
-                'columns': columns,
-                'rows': rows,
-                'row_count': len(rows)
-            }
+            return {"columns": columns, "rows": rows, "row_count": len(rows)}
         except Exception as e:
             logger.error(f"Error executing query: {str(e)}")
             raise
@@ -260,25 +252,29 @@ class DatabaseService:
         try:
             # Validate database name (alphanumeric and underscores only)
             import re
-            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', database_name):
-                raise ValueError("Database name must start with a letter or underscore and contain only alphanumeric characters and underscores")
+
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", database_name):
+                raise ValueError(
+                    "Database name must start with a letter or underscore "
+                    "and contain only alphanumeric characters and underscores"
+                )
 
             # Connect to postgres database to create new database
-            conn = self._get_connection('postgres')
+            conn = self._get_connection("postgres")
             conn.autocommit = True
             cur = conn.cursor()
 
             # Create database
-            cur.execute(f'CREATE DATABASE {database_name}')
+            cur.execute(f"CREATE DATABASE {database_name}")
 
             cur.close()
             conn.close()
 
             logger.info(f"Database '{database_name}' created successfully")
             return {
-                'success': True,
-                'database': database_name,
-                'message': f"Database '{database_name}' created successfully"
+                "success": True,
+                "database": database_name,
+                "message": f"Database '{database_name}' created successfully",
             }
         except Exception as e:
             logger.error(f"Error creating database: {str(e)}")
@@ -288,8 +284,8 @@ class DatabaseService:
         self,
         database: str,
         table_name: str,
-        schema: str = 'public',
-        columns: List[Dict[str, Any]] = None
+        schema: str = "public",
+        columns: List[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Create a new table with specified columns"""
         try:
@@ -298,8 +294,12 @@ class DatabaseService:
 
             # Validate table name
             import re
-            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
-                raise ValueError("Table name must start with a letter or underscore and contain only alphanumeric characters and underscores")
+
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
+                raise ValueError(
+                    "Table name must start with a letter or underscore "
+                    "and contain only alphanumeric characters and underscores"
+                )
 
             conn = self._get_connection(database)
             cur = conn.cursor()
@@ -307,10 +307,10 @@ class DatabaseService:
             # Build CREATE TABLE statement
             column_defs = []
             for col in columns:
-                col_name = col['name']
-                col_type = col['type']
-                nullable = col.get('nullable', True)
-                primary_key = col.get('primary_key', False)
+                col_name = col["name"]
+                col_type = col["type"]
+                nullable = col.get("nullable", True)
+                primary_key = col.get("primary_key", False)
 
                 col_def = f"{col_name} {col_type}"
                 if primary_key:
@@ -318,7 +318,7 @@ class DatabaseService:
                 elif not nullable:
                     col_def += " NOT NULL"
 
-                if 'default' in col and col['default']:
+                if "default" in col and col["default"]:
                     col_def += f" DEFAULT {col['default']}"
 
                 column_defs.append(col_def)
@@ -337,10 +337,10 @@ class DatabaseService:
 
             logger.info(f"Table '{schema}.{table_name}' created successfully")
             return {
-                'success': True,
-                'schema': schema,
-                'table': table_name,
-                'message': f"Table '{schema}.{table_name}' created successfully"
+                "success": True,
+                "schema": schema,
+                "table": table_name,
+                "message": f"Table '{schema}.{table_name}' created successfully",
             }
         except Exception as e:
             logger.error(f"Error creating table: {str(e)}")
@@ -349,6 +349,7 @@ class DatabaseService:
 
 # Singleton instance
 _database_service = None
+
 
 def get_database_service() -> DatabaseService:
     """Get or create database service instance"""

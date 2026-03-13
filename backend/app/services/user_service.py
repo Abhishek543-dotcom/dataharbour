@@ -2,15 +2,16 @@
 User service for authentication and user management
 """
 import logging
-from typing import Optional
 from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
-from jose import jwt, JWTError
-from passlib.context import CryptContext
+from typing import Optional
 
-from app.db.repositories.user_repository import UserRepository
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
+
 from app.core.config import settings
-from app.models.schemas import UserCreate, UserUpdate, User
+from app.db.repositories.user_repository import UserRepository
+from app.models.schemas import User, UserCreate, UserUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -30,23 +31,31 @@ class UserService:
         """Hash a password"""
         return pwd_context.hash(password)
 
-    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(
+        self, data: dict, expires_delta: Optional[timedelta] = None
+    ) -> str:
         """Create JWT access token"""
         to_encode = data.copy()
 
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.utcnow() + timedelta(
+                minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+            )
 
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        encoded_jwt = jwt.encode(
+            to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        )
         return encoded_jwt
 
     def verify_token(self, token: str) -> Optional[str]:
         """Verify JWT token and return user_id"""
         try:
-            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+            payload = jwt.decode(
+                token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+            )
             user_id: str = payload.get("sub")
             if user_id is None:
                 return None
@@ -76,7 +85,7 @@ class UserService:
             "full_name": user_data.full_name,
             "hashed_password": hashed_password,
             "is_active": True,
-            "is_superuser": False
+            "is_superuser": False,
         }
 
         # Create in database
@@ -85,7 +94,9 @@ class UserService:
 
         return User.model_validate(user_db)
 
-    def authenticate_user(self, db: Session, email: str, password: str) -> Optional[User]:
+    def authenticate_user(
+        self, db: Session, email: str, password: str
+    ) -> Optional[User]:
         """Authenticate user with email and password"""
         user_db = self.repository.get_by_email(db, email)
         if not user_db:
@@ -114,7 +125,9 @@ class UserService:
             return User.model_validate(user_db)
         return None
 
-    def update_user(self, db: Session, user_id: str, user_data: UserUpdate) -> Optional[User]:
+    def update_user(
+        self, db: Session, user_id: str, user_data: UserUpdate
+    ) -> Optional[User]:
         """Update user information"""
         update_dict = {}
 

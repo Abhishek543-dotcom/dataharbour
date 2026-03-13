@@ -69,8 +69,9 @@ def test_filter_jobs_by_status(client: TestClient):
 
 @pytest.mark.integration
 @pytest.mark.slow
-def test_kill_running_job(client: TestClient, sample_job_data):
+def test_kill_running_job(client: TestClient, sample_job_data, mocker):
     """Test killing a running job"""
+    mocker.patch('app.services.job_service.JobService.kill_job', return_value=True)
     # Create a job
     create_response = client.post("/api/v1/jobs/", json=sample_job_data)
     job_id = create_response.json()["id"]

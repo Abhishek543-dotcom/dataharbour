@@ -2,7 +2,9 @@
 User repository for database operations
 """
 from typing import Optional
+
 from sqlalchemy.orm import Session
+
 from app.db.repositories.base_repository import BaseRepository
 from app.models.db_models import User
 
@@ -23,11 +25,17 @@ class UserRepository(BaseRepository[User]):
 
     def get_active_users(self, db: Session, skip: int = 0, limit: int = 100):
         """Get all active users"""
-        return db.query(self.model).filter(self.model.is_active == True).offset(skip).limit(limit).all()
+        return (
+            db.query(self.model)
+            .filter(self.model.is_active is True)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
     def get_superusers(self, db: Session):
         """Get all superuser accounts"""
-        return db.query(self.model).filter(self.model.is_superuser == True).all()
+        return db.query(self.model).filter(self.model.is_superuser is True).all()
 
     def deactivate_user(self, db: Session, user_id: str) -> Optional[User]:
         """Deactivate a user account"""
