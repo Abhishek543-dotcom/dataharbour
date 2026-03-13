@@ -1,9 +1,9 @@
-from fastapi import Request, HTTPException, status
+import time
+from collections import defaultdict
+
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from collections import defaultdict
-from datetime import datetime, timedelta
-import time
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -31,7 +31,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Clean up old entries
         self.clients[client_ip] = [
-            timestamp for timestamp in self.clients[client_ip]
+            timestamp
+            for timestamp in self.clients[client_ip]
             if now - timestamp < self.period
         ]
 
@@ -42,8 +43,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 content={
                     "error": "Rate limit exceeded",
                     "detail": f"Too many requests. Limit: {self.calls} requests per {self.period} seconds",
-                    "retry_after": int(self.period - (now - self.clients[client_ip][0]))
-                }
+                    "retry_after": int(
+                        self.period - (now - self.clients[client_ip][0])
+                    ),
+                },
             )
 
         # Add current request timestamp
@@ -57,8 +60,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Remaining"] = str(
             max(0, self.calls - len(self.clients[client_ip]))
         )
-        response.headers["X-RateLimit-Reset"] = str(
-            int(now + self.period)
-        )
+        response.headers["X-RateLimit-Reset"] = str(int(now + self.period))
 
         return response

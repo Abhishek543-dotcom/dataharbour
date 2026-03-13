@@ -1,15 +1,15 @@
 import logging
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-from pyspark.sql import SparkSession
-from pyspark import SparkContext, SparkConf
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pyspark.sql import SparkSession
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.schemas import Cluster, ClusterStatus, ClusterCreate
 from app.db.repositories.cluster_repository import ClusterRepository
 from app.db.session import SessionLocal
+from app.models.schemas import Cluster, ClusterCreate, ClusterStatus
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class SparkService:
                     "worker_nodes": 2,
                     "total_cores": 4,
                     "total_memory": "4g",
-                    "config": {}
+                    "config": {},
                 }
                 self.repository.create(db, cluster_dict)
                 logger.info("Default cluster created in database")
@@ -51,30 +51,49 @@ class SparkService:
             worker_nodes=cluster_db.worker_nodes,
             total_cores=cluster_db.total_cores,
             total_memory=cluster_db.total_memory,
-            created_at=cluster_db.created_at
+            created_at=cluster_db.created_at,
         )
 
-    def get_spark_session(self, db: Session, cluster_id: Optional[str] = None) -> SparkSession:
+    def get_spark_session(
+        self, db: Session, cluster_id: Optional[str] = None
+    ) -> SparkSession:
         """Get or create Spark session"""
         try:
             if self._spark_session is None:
                 # Ensure default cluster exists
                 self.ensure_default_cluster(db)
 
-                cluster_db = self.repository.get_by_id(db, cluster_id or "spark-cluster-default")
-                master_url = cluster_db.master_url if cluster_db else settings.SPARK_MASTER_URL
+                cluster_db = self.repository.get_by_id(
+                    db, cluster_id or "spark-cluster-default"
+                )
+                master_url = (
+                    cluster_db.master_url if cluster_db else settings.SPARK_MASTER_URL
+                )
 
-                self._spark_session = SparkSession.builder \
-                    .appName("DataHarbour") \
-                    .master(master_url) \
-                    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
-                    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-                    .config("spark.hadoop.fs.s3a.endpoint", f"http://{settings.MINIO_ENDPOINT}") \
-                    .config("spark.hadoop.fs.s3a.access.key", settings.MINIO_ACCESS_KEY) \
-                    .config("spark.hadoop.fs.s3a.secret.key", settings.MINIO_SECRET_KEY) \
-                    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
-                    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+                self._spark_session = (
+                    SparkSession.builder.appName("DataHarbour")
+                    .master(master_url)
+                    .config(
+                        "spark.sql.extensions",
+                        "io.delta.sql.DeltaSparkSessionExtension",
+                    )
+                    .config(
+                        "spark.sql.catalog.spark_catalog",
+                        "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+                    )
+                    .config(
+                        "spark.hadoop.fs.s3a.endpoint",
+                        f"http://{settings.MINIO_ENDPOINT}",
+                    )
+                    .config("spark.hadoop.fs.s3a.access.key", settings.MINIO_ACCESS_KEY)
+                    .config("spark.hadoop.fs.s3a.secret.key", settings.MINIO_SECRET_KEY)
+                    .config("spark.hadoop.fs.s3a.path.style.access", "true")
+                    .config(
+                        "spark.hadoop.fs.s3a.impl",
+                        "org.apache.hadoop.fs.s3a.S3AFileSystem",
+                    )
                     .getOrCreate()
+                )
 
                 logger.info(f"Spark session created with master: {master_url}")
 
@@ -83,7 +102,9 @@ class SparkService:
             logger.error(f"Error creating Spark session: {e}")
             raise
 
-    async def get_clusters(self, db: Session, user_id: Optional[str] = None) -> List[Cluster]:
+    async def get_clusters(
+        self, db: Session, user_id: Optional[str] = None
+    ) -> List[Cluster]:
         """Get all Spark clusters"""
         # Ensure default cluster exists
         self.ensure_default_cluster(db)
@@ -106,10 +127,7 @@ class SparkService:
         return None
 
     async def create_cluster(
-        self,
-        db: Session,
-        cluster_data: ClusterCreate,
-        user_id: Optional[str] = None
+        self, db: Session, cluster_data: ClusterCreate, user_id: Optional[str] = None
     ) -> Cluster:
         """Create a new Spark cluster"""
         try:
@@ -132,13 +150,14 @@ class SparkService:
                 "total_cores": total_cores,
                 "total_memory": total_memory,
                 "config": {},
-                "user_id": user_id
+                "user_id": user_id,
             }
 
             cluster_db = self.repository.create(db, cluster_dict)
 
             # Simulate cluster startup
             import asyncio
+
             asyncio.create_task(self._start_cluster(cluster_id))
 
             logger.info(f"Cluster {cluster_id} created")
@@ -150,12 +169,15 @@ class SparkService:
     async def _start_cluster(self, cluster_id: str):
         """Simulate cluster startup"""
         import asyncio
+
         await asyncio.sleep(5)  # Simulate startup time
 
         # Update cluster status in database
         db = SessionLocal()
         try:
-            self.repository.update(db, cluster_id, {"status": ClusterStatus.RUNNING.value})
+            self.repository.update(
+                db, cluster_id, {"status": ClusterStatus.RUNNING.value}
+            )
             logger.info(f"Cluster {cluster_id} is now running")
         finally:
             db.close()
@@ -171,10 +193,13 @@ class SparkService:
                 return False
 
             # Update status to stopping
-            self.repository.update(db, cluster_id, {"status": ClusterStatus.STOPPING.value})
+            self.repository.update(
+                db, cluster_id, {"status": ClusterStatus.STOPPING.value}
+            )
 
             # Simulate cleanup
             import asyncio
+
             await asyncio.sleep(2)
 
             # Delete from database
@@ -202,7 +227,9 @@ class SparkService:
                 "worker_nodes": cluster_db.worker_nodes,
                 "total_cores": cluster_db.total_cores,
                 "total_memory": cluster_db.total_memory,
-                "created_at": cluster_db.created_at.isoformat() if cluster_db.created_at else None,
+                "created_at": cluster_db.created_at.isoformat()
+                if cluster_db.created_at
+                else None,
                 "uptime": None,
                 "applications": [],
                 "executors": [],
@@ -210,13 +237,18 @@ class SparkService:
                     "cores_used": 0,
                     "cores_available": cluster_db.total_cores,
                     "memory_used": "0g",
-                    "memory_available": cluster_db.total_memory
-                }
+                    "memory_available": cluster_db.total_memory,
+                },
             }
 
             # Calculate uptime if cluster is running
-            if cluster_db.status == ClusterStatus.RUNNING.value and cluster_db.created_at:
-                uptime_seconds = (datetime.now() - cluster_db.created_at).total_seconds()
+            if (
+                cluster_db.status == ClusterStatus.RUNNING.value
+                and cluster_db.created_at
+            ):
+                uptime_seconds = (
+                    datetime.now() - cluster_db.created_at
+                ).total_seconds()
                 hours = int(uptime_seconds // 3600)
                 minutes = int((uptime_seconds % 3600) // 60)
                 metrics["uptime"] = f"{hours}h {minutes}m"
@@ -227,43 +259,53 @@ class SparkService:
                 sc = spark.sparkContext
 
                 # Get application info
-                metrics["applications"].append({
-                    "id": sc.applicationId,
-                    "name": sc.appName,
-                    "status": "RUNNING",
-                    "start_time": None
-                })
+                metrics["applications"].append(
+                    {
+                        "id": sc.applicationId,
+                        "name": sc.appName,
+                        "status": "RUNNING",
+                        "start_time": None,
+                    }
+                )
 
                 # Get executor info from Spark
                 executor_info = sc._jsc.sc().statusTracker().getExecutorInfos()
                 for executor in executor_info:
-                    metrics["executors"].append({
-                        "id": executor.host(),
-                        "host": executor.host(),
-                        "cores": getattr(executor, 'totalCores', 0),
-                        "memory": "Unknown"
-                    })
+                    metrics["executors"].append(
+                        {
+                            "id": executor.host(),
+                            "host": executor.host(),
+                            "cores": getattr(executor, "totalCores", 0),
+                            "memory": "Unknown",
+                        }
+                    )
 
                 # Update resource usage
                 if metrics["executors"]:
-                    metrics["resources"]["cores_used"] = sum(e.get("cores", 0) for e in metrics["executors"])
+                    metrics["resources"]["cores_used"] = sum(
+                        e.get("cores", 0) for e in metrics["executors"]
+                    )
 
             except Exception as e:
                 logger.warning(f"Could not get live Spark metrics: {e}")
                 # Provide default application info
-                metrics["applications"].append({
-                    "id": "N/A",
-                    "name": "DataHarbour",
-                    "status": "READY",
-                    "start_time": None
-                })
+                metrics["applications"].append(
+                    {
+                        "id": "N/A",
+                        "name": "DataHarbour",
+                        "status": "READY",
+                        "start_time": None,
+                    }
+                )
 
             return metrics
         except Exception as e:
             logger.error(f"Error getting cluster metrics: {e}")
             raise
 
-    async def execute_code(self, code: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+    async def execute_code(
+        self, code: str, cluster_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Execute PySpark code on a cluster"""
         try:
             # Create temporary DB session for getting spark session
@@ -274,15 +316,11 @@ class SparkService:
                 db.close()
 
             # Create a namespace for code execution
-            namespace = {
-                'spark': spark,
-                'sc': spark.sparkContext
-            }
+            namespace = {"spark": spark, "sc": spark.sparkContext}
 
             # Capture output
             import io
-            import sys
-            from contextlib import redirect_stdout, redirect_stderr
+            from contextlib import redirect_stderr, redirect_stdout
 
             stdout_buffer = io.StringIO()
             stderr_buffer = io.StringIO()
@@ -301,7 +339,7 @@ class SparkService:
                 "output": output or "Code executed successfully",
                 "errors": errors,
                 "execution_time": execution_time,
-                "status": "success" if not errors else "completed_with_warnings"
+                "status": "success" if not errors else "completed_with_warnings",
             }
         except Exception as e:
             logger.error(f"Error executing code: {e}")
@@ -309,7 +347,7 @@ class SparkService:
                 "output": "",
                 "errors": str(e),
                 "execution_time": 0,
-                "status": "failed"
+                "status": "failed",
             }
 
     def close_session(self):

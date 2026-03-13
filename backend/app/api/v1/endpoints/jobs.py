@@ -1,12 +1,21 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
-from typing import List, Optional
-from sqlalchemy.orm import Session
 import logging
+from typing import List, Optional
 
-from app.models.schemas import Job, JobDetails, JobCreate, JobFilter, JobStatus, APIResponse, User
-from app.services.job_service import job_service
-from app.db.session import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
 from app.api.dependencies import get_optional_current_user
+from app.db.session import get_db
+from app.models.schemas import (
+    APIResponse,
+    Job,
+    JobCreate,
+    JobDetails,
+    JobFilter,
+    JobStatus,
+    User,
+)
+from app.services.job_service import job_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -18,7 +27,7 @@ async def get_jobs(
     cluster: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Get all jobs with optional filtering"""
     try:
@@ -32,10 +41,7 @@ async def get_jobs(
 
 
 @router.get("/{job_id}", response_model=JobDetails)
-async def get_job(
-    job_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_job(job_id: str, db: Session = Depends(get_db)):
     """Get specific job details"""
     try:
         job = await job_service.get_job(db, job_id)
@@ -53,7 +59,7 @@ async def get_job(
 async def create_job(
     job_data: JobCreate,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Submit a new Spark job"""
     try:
@@ -66,20 +72,14 @@ async def create_job(
 
 
 @router.post("/{job_id}/kill", response_model=APIResponse)
-async def kill_job(
-    job_id: str,
-    db: Session = Depends(get_db)
-):
+async def kill_job(job_id: str, db: Session = Depends(get_db)):
     """Kill a running job"""
     try:
         success = await job_service.kill_job(db, job_id)
         if not success:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
-        return APIResponse(
-            success=True,
-            message=f"Job {job_id} killed successfully"
-        )
+        return APIResponse(success=True, message=f"Job {job_id} killed successfully")
     except HTTPException:
         raise
     except Exception as e:
@@ -91,7 +91,7 @@ async def kill_job(
 async def restart_job(
     job_id: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Restart a job"""
     try:
@@ -104,10 +104,7 @@ async def restart_job(
 
 
 @router.get("/{job_id}/logs")
-async def get_job_logs(
-    job_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_job_logs(job_id: str, db: Session = Depends(get_db)):
     """Get job logs"""
     try:
         logs = await job_service.get_job_logs(db, job_id)
@@ -118,20 +115,14 @@ async def get_job_logs(
 
 
 @router.get("/{job_id}/spark-ui")
-async def get_spark_ui(
-    job_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_spark_ui(job_id: str, db: Session = Depends(get_db)):
     """Get Spark UI URL for job"""
     try:
         job = await job_service.get_job(db, job_id)
         if not job:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
-        return {
-            "job_id": job_id,
-            "spark_ui_url": job.spark_ui_url
-        }
+        return {"job_id": job_id, "spark_ui_url": job.spark_ui_url}
     except HTTPException:
         raise
     except Exception as e:
@@ -144,7 +135,7 @@ async def convert_job_to_dag(
     job_id: str,
     schedule_interval: Optional[str] = "0 0 * * *",
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """Convert a Spark job into an Airflow DAG for scheduling"""
     try:
@@ -157,7 +148,9 @@ async def convert_job_to_dag(
         dag_file_path = f"/opt/airflow/dags/{dag_id}.py"
 
         # Properly escape the job code for Python string
-        escaped_code = job.code.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+        escaped_code = (
+            job.code.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+        )
 
         dag_content = f'''"""
 Auto-generated Airflow DAG from Spark Job: {job.name}
@@ -211,13 +204,14 @@ execute_job_task = PythonOperator(
 
         # Write DAG file
         import os
+
         os.makedirs("/opt/airflow/dags", exist_ok=True)
-        with open(dag_file_path, 'w') as f:
+        with open(dag_file_path, "w") as f:
             f.write(dag_content)
 
         return APIResponse(
             success=True,
-            message=f"Job converted to DAG '{dag_id}'. It will appear in Airflow shortly."
+            message=f"Job converted to DAG '{dag_id}'. It will appear in Airflow shortly.",
         )
     except HTTPException:
         raise

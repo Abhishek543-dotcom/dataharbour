@@ -1,14 +1,19 @@
-import logging
-from typing import List, Optional, Dict
-from datetime import datetime
-import uuid
 import json
+import logging
+import uuid
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
-from app.models.schemas import Notebook, NotebookCreate, NotebookUpdate, NotebookCell, CellExecuteRequest, CellExecuteResponse
-from app.services.spark_service import spark_service
 from app.db.repositories.notebook_repository import NotebookRepository
-from app.db.session import SessionLocal
+from app.models.schemas import (
+    CellExecuteResponse,
+    Notebook,
+    NotebookCell,
+    NotebookCreate,
+    NotebookUpdate,
+)
+from app.services.spark_service import spark_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,17 +37,17 @@ class NotebookService:
             cells=cells,
             created_at=notebook_db.created_at,
             updated_at=notebook_db.updated_at,
-            path=notebook_db.path
+            path=notebook_db.path,
         )
 
     async def get_all_notebooks(
-        self,
-        db: Session,
-        user_id: Optional[str] = None
+        self, db: Session, user_id: Optional[str] = None
     ) -> List[Notebook]:
         """Get all notebooks"""
         if user_id:
-            notebooks_db = self.repository.get_recent_notebooks(db, user_id=user_id, limit=1000)
+            notebooks_db = self.repository.get_recent_notebooks(
+                db, user_id=user_id, limit=1000
+            )
         else:
             notebooks_db = self.repository.get_recent_notebooks(db, limit=1000)
 
@@ -56,10 +61,7 @@ class NotebookService:
         return None
 
     async def create_notebook(
-        self,
-        db: Session,
-        notebook_data: NotebookCreate,
-        user_id: Optional[str] = None
+        self, db: Session, notebook_data: NotebookCreate, user_id: Optional[str] = None
     ) -> Notebook:
         """Create a new notebook"""
         try:
@@ -71,7 +73,7 @@ class NotebookService:
                 "description": notebook_data.description,
                 "cells": [],
                 "user_id": user_id,
-                "path": f"/notebooks/{notebook_id}.ipynb"
+                "path": f"/notebooks/{notebook_id}.ipynb",
             }
 
             notebook_db = self.repository.create(db, notebook_dict)
@@ -82,10 +84,7 @@ class NotebookService:
             raise
 
     async def update_notebook(
-        self,
-        db: Session,
-        notebook_id: str,
-        update_data: NotebookUpdate
+        self, db: Session, notebook_id: str, update_data: NotebookUpdate
     ) -> Notebook:
         """Update a notebook"""
         try:
@@ -120,7 +119,9 @@ class NotebookService:
             logger.error(f"Error deleting notebook {notebook_id}: {e}")
             raise
 
-    async def add_cell(self, db: Session, notebook_id: str, cell: NotebookCell) -> Notebook:
+    async def add_cell(
+        self, db: Session, notebook_id: str, cell: NotebookCell
+    ) -> Notebook:
         """Add a cell to a notebook"""
         try:
             notebook_db = self.repository.get_by_id(db, notebook_id)
@@ -138,7 +139,9 @@ class NotebookService:
             logger.error(f"Error adding cell to notebook {notebook_id}: {e}")
             raise
 
-    async def delete_cell(self, db: Session, notebook_id: str, cell_id: str) -> Notebook:
+    async def delete_cell(
+        self, db: Session, notebook_id: str, cell_id: str
+    ) -> Notebook:
         """Delete a cell from a notebook"""
         try:
             notebook_db = self.repository.get_by_id(db, notebook_id)
@@ -161,7 +164,7 @@ class NotebookService:
         notebook_id: str,
         cell_id: str,
         code: str,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
     ) -> CellExecuteResponse:
         """Execute a notebook cell"""
         try:
@@ -171,7 +174,9 @@ class NotebookService:
 
             # Find the cell
             cells = notebook_db.cells or []
-            cell_index = next((i for i, c in enumerate(cells) if c.get("id") == cell_id), None)
+            cell_index = next(
+                (i for i, c in enumerate(cells) if c.get("id") == cell_id), None
+            )
             if cell_index is None:
                 raise ValueError(f"Cell {cell_id} not found in notebook {notebook_id}")
 
@@ -181,21 +186,17 @@ class NotebookService:
             # Update cell with execution results
             cell = cells[cell_index]
             cell["execution_count"] = (cell.get("execution_count") or 0) + 1
-            cell["outputs"] = [{
-                "output_type": "stream",
-                "text": result["output"]
-            }]
+            cell["outputs"] = [{"output_type": "stream", "text": result["output"]}]
 
             # Update notebook in database
             self.repository.update(db, notebook_id, {"cells": cells})
 
             # Create a job for tracking
-            from app.services.job_service import job_service
             from app.models.schemas import JobCreate
+            from app.services.job_service import job_service
 
             job_data = JobCreate(
-                name=f"Notebook {notebook_db.name} - Cell {cell_id}",
-                code=code
+                name=f"Notebook {notebook_db.name} - Cell {cell_id}", code=code
             )
             job = await job_service.create_job(db, job_data, user_id)
 
@@ -203,15 +204,12 @@ class NotebookService:
                 output=result["output"],
                 execution_time=result["execution_time"],
                 status=result["status"],
-                job_id=job.id
+                job_id=job.id,
             )
         except Exception as e:
             logger.error(f"Error executing cell {cell_id}: {e}")
             return CellExecuteResponse(
-                output=str(e),
-                execution_time=0,
-                status="failed",
-                job_id=None
+                output=str(e), execution_time=0, status="failed", job_id=None
             )
 
     async def import_notebook(
@@ -219,7 +217,7 @@ class NotebookService:
         db: Session,
         file_content: str,
         filename: str,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
     ) -> Notebook:
         """Import a notebook from JSON/ipynb file"""
         try:
@@ -234,7 +232,7 @@ class NotebookService:
                         "cell_type": cell.get("cell_type", "code"),
                         "source": "".join(cell.get("source", [])),
                         "outputs": cell.get("outputs", []),
-                        "execution_count": cell.get("execution_count")
+                        "execution_count": cell.get("execution_count"),
                     }
                     for i, cell in enumerate(data["cells"])
                 ]
@@ -245,8 +243,7 @@ class NotebookService:
                 name = data.get("name", filename)
 
             notebook_data = NotebookCreate(
-                name=name,
-                description=f"Imported from {filename}"
+                name=name, description=f"Imported from {filename}"
             )
             notebook = await self.create_notebook(db, notebook_data, user_id)
 
@@ -277,7 +274,7 @@ class NotebookService:
                         "execution_count": cell.get("execution_count"),
                         "metadata": {},
                         "source": cell.get("source", "").split("\n"),
-                        "outputs": cell.get("outputs", [])
+                        "outputs": cell.get("outputs", []),
                     }
                     for cell in (notebook_db.cells or [])
                 ],
@@ -285,15 +282,12 @@ class NotebookService:
                     "kernelspec": {
                         "display_name": "PySpark",
                         "language": "python",
-                        "name": "pyspark"
+                        "name": "pyspark",
                     },
-                    "language_info": {
-                        "name": "python",
-                        "version": "3.9"
-                    }
+                    "language_info": {"name": "python", "version": "3.9"},
                 },
                 "nbformat": 4,
-                "nbformat_minor": 4
+                "nbformat_minor": 4,
             }
 
             return ipynb
@@ -301,7 +295,9 @@ class NotebookService:
             logger.error(f"Error exporting notebook {notebook_id}: {e}")
             raise
 
-    async def get_notebook_count(self, db: Session, user_id: Optional[str] = None) -> int:
+    async def get_notebook_count(
+        self, db: Session, user_id: Optional[str] = None
+    ) -> int:
         """Get total count of notebooks"""
         if user_id:
             return self.repository.count_by_user(db, user_id)

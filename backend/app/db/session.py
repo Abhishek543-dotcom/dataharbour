@@ -1,9 +1,11 @@
 """
 Database session management
 """
+from typing import Generator
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from typing import Generator
+
 from app.core.config import settings
 
 kwargs = {
@@ -15,17 +17,10 @@ if not settings.DATABASE_URL.startswith("sqlite"):
     kwargs["max_overflow"] = 10
 
 # Create SQLAlchemy engine
-engine = create_engine(
-    settings.DATABASE_URL,
-    **kwargs
-)
+engine = create_engine(settings.DATABASE_URL, **kwargs)
 
 # Create session factory
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db() -> Generator:
