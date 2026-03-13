@@ -294,16 +294,8 @@ const Settings = () => {
                         <dd className="text-sm font-medium text-gray-900">postgres:5432</dd>
                       </div>
                       <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">MinIO</dt>
-                        <dd className="text-sm font-medium text-gray-900">minio:9000</dd>
-                      </div>
-                      <div className="flex justify-between">
                         <dt className="text-sm text-gray-600">Spark Master</dt>
                         <dd className="text-sm font-medium text-gray-900">spark://spark:7077</dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">Airflow</dt>
-                        <dd className="text-sm font-medium text-gray-900">http://localhost:8081</dd>
                       </div>
                     </dl>
                   </div>

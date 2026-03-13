@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Create logs directory if it doesn't exist
-os.makedirs("/data/logs", exist_ok=True)
+os.makedirs("data/logs", exist_ok=True)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -79,7 +79,7 @@ async def root():
 async def health_check():
     return {
         "status": "healthy",
-        "services": {"api": "running", "spark": "connected", "airflow": "connected"},
+        "services": {"api": "running", "spark": "connected"},
     }
 
 

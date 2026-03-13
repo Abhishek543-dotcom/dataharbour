@@ -201,13 +201,6 @@ const Jobs = () => {
                       {job.duration || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={<Calendar className="w-4 h-4" />}
-                        onClick={() => handleScheduleJob(job)}
-                        title="Schedule as Airflow DAG"
-                      />
                       <Button variant="ghost" size="sm" icon={<Eye className="w-4 h-4" />} />
                       {job.status === 'running' && (
                         <Button

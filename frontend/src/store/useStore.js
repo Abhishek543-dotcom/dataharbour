@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { dashboardAPI, jobsAPI, clustersAPI, notebooksAPI, monitoringAPI } from '../services/api';
+import { dashboardAPI, jobsAPI, clustersAPI, monitoringAPI } from '../services/api';
 
 const useStore = create((set, get) => ({
   // Dashboard state
@@ -21,11 +21,6 @@ const useStore = create((set, get) => ({
   clusters: [],
   selectedCluster: null,
   loadingClusters: false,
-
-  // Notebooks state
-  notebooks: [],
-  selectedNotebook: null,
-  loadingNotebooks: false,
 
   // Monitoring state
   metrics: null,
@@ -153,71 +148,6 @@ const useStore = create((set, get) => ({
       set({ clusters: clusters.filter(c => c.id !== clusterId) });
     } catch (error) {
       console.error('Error deleting cluster:', error);
-      throw error;
-    }
-  },
-
-  // Actions - Notebooks
-  fetchNotebooks: async () => {
-    set({ loadingNotebooks: true });
-    try {
-      const response = await notebooksAPI.getAll();
-      set({ notebooks: response.data, loadingNotebooks: false });
-    } catch (error) {
-      console.error('Error fetching notebooks:', error);
-      set({ loadingNotebooks: false });
-    }
-  },
-
-  fetchNotebookDetails: async (notebookId) => {
-    try {
-      const response = await notebooksAPI.getById(notebookId);
-      set({ selectedNotebook: response.data });
-    } catch (error) {
-      console.error('Error fetching notebook details:', error);
-    }
-  },
-
-  createNotebook: async (notebookData) => {
-    try {
-      const response = await notebooksAPI.create(notebookData);
-      const { notebooks } = get();
-      set({ notebooks: [response.data, ...notebooks] });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating notebook:', error);
-      throw error;
-    }
-  },
-
-  updateNotebook: async (notebookId, data) => {
-    try {
-      const response = await notebooksAPI.update(notebookId, data);
-      set({ selectedNotebook: response.data });
-      get().fetchNotebooks();
-    } catch (error) {
-      console.error('Error updating notebook:', error);
-      throw error;
-    }
-  },
-
-  deleteNotebook: async (notebookId) => {
-    try {
-      await notebooksAPI.delete(notebookId);
-      const { notebooks } = get();
-      set({ notebooks: notebooks.filter(n => n.id !== notebookId) });
-    } catch (error) {
-      console.error('Error deleting notebook:', error);
-      throw error;
-    }
-  },
-
-  executeCell: async (notebookId, cellId, code) => {
-    try {
-      const response = await notebooksAPI.executeCell(notebookId, cellId, code);
-      return response.data;
-    } catch (error) {
-      console.error('Error executing cell:', error);
       throw error;
     }
   },
