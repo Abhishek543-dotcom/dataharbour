@@ -17,35 +17,19 @@ class Settings(BaseSettings):
     SPARK_MASTER_URL: str = "spark://spark:7077"
     SPARK_UI_URL: str = "http://spark:4040"
 
-    # Airflow Configuration
-    AIRFLOW_BASE_URL: str = "http://airflow-webserver:8080"
-    AIRFLOW_USERNAME: str = os.getenv("AIRFLOW_USERNAME", "admin")
-    AIRFLOW_PASSWORD: str = os.getenv("AIRFLOW_PASSWORD", "CHANGE_ME")
-
-    # Jupyter Configuration
-    JUPYTER_BASE_URL: str = "http://jupyter:8888"
-    JUPYTER_TOKEN: Optional[str] = os.getenv("JUPYTER_TOKEN")
-
     # PostgreSQL Configuration
     POSTGRES_HOST: str = "postgres"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "admin")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "CHANGE_ME")
-    POSTGRES_DB: str = "airflow"
+    POSTGRES_DB: str = "dataharbour"
 
-    # DataHarbour Database (separate from Airflow)
+    # DataHarbour Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
         f"postgresql://{os.getenv('POSTGRES_USER', 'admin')}:"
         f"{os.getenv('POSTGRES_PASSWORD', 'CHANGE_ME')}@postgres:5432/dataharbour",
     )
-
-    # MinIO Configuration
-    MINIO_ENDPOINT: str = "minio:9000"
-    MINIO_ACCESS_KEY: str = os.getenv("MINIO_ROOT_USER", "CHANGE_ME")
-    MINIO_SECRET_KEY: str = os.getenv("MINIO_ROOT_PASSWORD", "CHANGE_ME")
-    MINIO_SECURE: bool = False
-    MINIO_BUCKET_NAME: str = "dataharbour"
 
     # Security
     SECRET_KEY: str = os.getenv("BACKEND_SECRET_KEY", secrets.token_urlsafe(32))
@@ -95,12 +79,6 @@ class Settings(BaseSettings):
 
             if self.POSTGRES_PASSWORD in ["admin", "CHANGE_ME"]:
                 warnings.append("POSTGRES_PASSWORD is using weak/default value!")
-
-            if self.MINIO_SECRET_KEY in ["minioadmin", "CHANGE_ME"]:
-                warnings.append("MINIO_SECRET_KEY is using weak/default value!")
-
-            if self.AIRFLOW_PASSWORD in ["admin", "CHANGE_ME"]:
-                warnings.append("AIRFLOW_PASSWORD is using weak/default value!")
 
             if warnings:
                 warning_msg = "\n".join(f"⚠️  {w}" for w in warnings)

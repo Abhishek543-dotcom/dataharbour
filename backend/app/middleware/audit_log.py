@@ -10,8 +10,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 audit_logger = logging.getLogger("audit")
 audit_logger.setLevel(logging.INFO)
 
+import os
+os.makedirs("data/logs", exist_ok=True)
+
 # Create file handler for audit logs
-audit_handler = logging.FileHandler("/data/logs/audit.log")
+audit_handler = logging.FileHandler("data/logs/audit.log")
 audit_handler.setLevel(logging.INFO)
 
 # Create formatter

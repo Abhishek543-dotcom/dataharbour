@@ -9,7 +9,6 @@ from app.api.dependencies import get_optional_current_user
 from app.db.session import get_db
 from app.models.schemas import DashboardStats, JobTrends, User
 from app.services.job_service import job_service
-from app.services.notebook_service import notebook_service
 from app.services.spark_service import spark_service
 
 router = APIRouter()
@@ -36,11 +35,8 @@ async def get_dashboard_stats(
         clusters = await spark_service.get_clusters(db, user_id)
         active_clusters = len([c for c in clusters if c.status == "running"])
 
-        # Get notebook count from database
-        total_notebooks = await notebook_service.get_notebook_count(db, user_id)
-
         return DashboardStats(
-            total_notebooks=total_notebooks,
+            total_notebooks=0,
             total_jobs=len(all_jobs),
             active_clusters=active_clusters,
             running_jobs=running_jobs,

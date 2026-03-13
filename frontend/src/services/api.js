@@ -64,26 +64,6 @@ export const clustersAPI = {
   delete: (id) => api.delete(`/clusters/${id}`),
 };
 
-// Notebooks API
-export const notebooksAPI = {
-  getAll: () => api.get('/notebooks/'),
-  getById: (id) => api.get(`/notebooks/${id}`),
-  create: (data) => api.post('/notebooks/', data),
-  update: (id, data) => api.put(`/notebooks/${id}`, data),
-  delete: (id) => api.delete(`/notebooks/${id}`),
-  addCell: (id, cell) => api.post(`/notebooks/${id}/cells`, cell),
-  deleteCell: (id, cellId) => api.delete(`/notebooks/${id}/cells/${cellId}`),
-  executeCell: (id, cellId, code) => api.post(`/notebooks/${id}/cells/${cellId}/execute`, { code }),
-  import: (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return api.post('/notebooks/import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  export: (id) => api.get(`/notebooks/${id}/export`),
-};
-
 // Monitoring API
 export const monitoringAPI = {
   getMetrics: () => api.get('/monitoring/metrics'),
@@ -100,46 +80,6 @@ export const databaseAPI = {
   getTableSchema: (database, schema, table) => api.get(`/database/databases/${database}/tables/${schema}/${table}/schema`),
   previewTable: (database, schema, table, params) => api.get(`/database/databases/${database}/tables/${schema}/${table}/preview`, { params }),
   executeQuery: (database, query, limit = 1000) => api.post(`/database/databases/${database}/query`, { query, limit }),
-};
-
-// Airflow API
-export const airflowAPI = {
-  getHealth: () => api.get('/airflow/health'),
-  getStatistics: () => api.get('/airflow/statistics'),
-  getDags: (params) => api.get('/airflow/dags', { params }),
-  getDag: (dagId) => api.get(`/airflow/dags/${dagId}`),
-  getDagRuns: (dagId, params) => api.get(`/airflow/dags/${dagId}/runs`, { params }),
-  triggerDag: (dagId, conf = {}) => api.post(`/airflow/dags/${dagId}/trigger`, { conf }),
-  pauseDag: (dagId) => api.post(`/airflow/dags/${dagId}/pause`),
-  unpauseDag: (dagId) => api.post(`/airflow/dags/${dagId}/unpause`),
-  getTaskInstances: (dagId, dagRunId) => api.get(`/airflow/dags/${dagId}/runs/${dagRunId}/tasks`),
-  getTaskLogs: (dagId, dagRunId, taskId, tryNumber = 1) => api.get(`/airflow/dags/${dagId}/runs/${dagRunId}/tasks/${taskId}/logs`, { params: { try_number: tryNumber } }),
-};
-
-// Storage API
-export const storageAPI = {
-  getBuckets: () => api.get('/storage/buckets'),
-  createBucket: (bucketName) => api.post('/storage/buckets', { bucket_name: bucketName }),
-  deleteBucket: (bucketName) => api.delete(`/storage/buckets/${bucketName}`),
-  getBucketStats: (bucketName) => api.get(`/storage/buckets/${bucketName}/stats`),
-  listObjects: (bucketName, params) => api.get(`/storage/buckets/${bucketName}/objects`, { params }),
-  getObjectInfo: (bucketName, objectPath) => api.get(`/storage/buckets/${bucketName}/objects/${objectPath}/info`),
-  getObjectUrl: (bucketName, objectPath, expiry = 3600) => api.get(`/storage/buckets/${bucketName}/objects/${objectPath}/url`, { params: { expiry } }),
-  uploadObject: (bucketName, objectPath, file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return api.post(`/storage/buckets/${bucketName}/objects/${objectPath}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  downloadObject: (bucketName, objectPath) => api.get(`/storage/buckets/${bucketName}/objects/${objectPath}/download`, { responseType: 'blob' }),
-  deleteObject: (bucketName, objectPath) => api.delete(`/storage/buckets/${bucketName}/objects/${objectPath}`),
-  copyObject: (sourceBucket, sourceObject, destBucket, destObject) => api.post('/storage/objects/copy', {
-    source_bucket: sourceBucket,
-    source_object: sourceObject,
-    dest_bucket: destBucket,
-    dest_object: destObject,
-  }),
 };
 
 export { api };

@@ -66,15 +66,7 @@ class MonitoringService:
         # Define expected services
         service_configs = [
             {"name": "spark", "port": 4040, "url": "http://spark:4040"},
-            {"name": "jupyter", "port": 8888, "url": "http://jupyter:8888"},
-            {
-                "name": "airflow-webserver",
-                "port": 8080,
-                "url": "http://airflow-webserver:8080",
-            },
             {"name": "postgres", "port": 5432, "url": "postgresql://postgres:5432"},
-            {"name": "minio", "port": 9000, "url": "http://minio:9000"},
-            {"name": "pgadmin", "port": 80, "url": "http://pgadmin:80"},
         ]
 
         if self.docker_client:

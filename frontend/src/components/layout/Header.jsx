@@ -7,10 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 const pageTitles = {
   '/': 'Dashboard',
   '/jobs': 'Jobs',
-  '/notebooks': 'Notebooks',
   '/database': 'Database Explorer',
-  '/airflow': 'Airflow Orchestration',
-  '/storage': 'Storage Browser',
   '/clusters': 'Clusters',
   '/monitoring': 'Monitoring',
   '/settings': 'Settings',

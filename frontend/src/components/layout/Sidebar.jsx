@@ -15,10 +15,7 @@ import clsx from 'clsx';
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
-  { name: 'Notebooks', href: '/notebooks', icon: FileText },
   { name: 'Database', href: '/database', icon: Database },
-  { name: 'Airflow', href: '/airflow', icon: Workflow },
-  { name: 'Storage', href: '/storage', icon: HardDrive },
   { name: 'Clusters', href: '/clusters', icon: Server },
   { name: 'Monitoring', href: '/monitoring', icon: Activity },
   { name: 'Settings', href: '/settings', icon: Settings },

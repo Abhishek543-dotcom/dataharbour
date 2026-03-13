@@ -5,10 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Jobs from './pages/Jobs';
-import Notebooks from './pages/Notebooks';
 import Database from './pages/Database';
-import Airflow from './pages/Airflow';
-import Storage from './pages/Storage';
 import Clusters from './pages/Clusters';
 import Monitoring from './pages/Monitoring';
 import Settings from './pages/Settings';
@@ -83,10 +80,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/jobs" element={<Jobs />} />
-          <Route path="/notebooks" element={<Notebooks />} />
           <Route path="/database" element={<Database />} />
-          <Route path="/airflow" element={<Airflow />} />
-          <Route path="/storage" element={<Storage />} />
           <Route path="/clusters" element={<Clusters />} />
           <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/settings" element={<Settings />} />
