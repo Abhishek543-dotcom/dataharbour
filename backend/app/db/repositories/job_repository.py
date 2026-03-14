@@ -1,6 +1,7 @@
 """
 Job repository for database operations
 """
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -44,14 +45,13 @@ class JobRepository(BaseRepository[Job]):
     def get_by_date_range(
         self,
         db: Session,
-        start_date,
-        end_date,
+        start_date: datetime,
+        end_date: datetime,
         user_id: Optional[str] = None,
     ) -> List[Job]:
         """Get jobs within a date range"""
         query = db.query(self.model).filter(
-            self.model.start_time >= start_date,
-            self.model.start_time < end_date
+            self.model.start_time >= start_date, self.model.start_time < end_date
         )
         if user_id:
             query = query.filter(self.model.user_id == user_id)

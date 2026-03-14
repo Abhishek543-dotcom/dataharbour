@@ -1,13 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import (
-    auth,
-    clusters,
-    dashboard,
-    database,
-    jobs,
-    monitoring,
-)
+from app.api.v1.endpoints import auth, clusters, dashboard, database, jobs, monitoring
 
 router = APIRouter()
 

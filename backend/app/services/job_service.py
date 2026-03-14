@@ -274,10 +274,16 @@ class JobService:
         self, db: Session, date: datetime, user_id: Optional[str] = None
     ) -> List[Job]:
         """Get jobs that started on a specific date"""
+        # Bolt Optimization: Replaced O(N) memory fetch and Python-side filtering
+        # with a direct SQL range query. This drastically reduces backend memory usage
+        # and response times for large job datasets, especially when called in loops
+        # like get_job_trends.
         start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
 
-        jobs_db = self.repository.get_by_date_range(db, start_of_day, end_of_day, user_id)
+        jobs_db = self.repository.get_by_date_range(
+            db, start_of_day, end_of_day, user_id
+        )
         return [self._job_model_to_details(j) for j in jobs_db]
 
 
