@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 from datetime import datetime
 
@@ -10,7 +11,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 audit_logger = logging.getLogger("audit")
 audit_logger.setLevel(logging.INFO)
 
-import os
 os.makedirs("data/logs", exist_ok=True)
 
 # Create file handler for audit logs

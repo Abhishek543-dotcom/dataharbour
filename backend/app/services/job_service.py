@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -274,7 +274,6 @@ class JobService:
         self, db: Session, date: datetime, user_id: Optional[str] = None
     ) -> List[Job]:
         """Get jobs that started on a specific date"""
-        from datetime import timedelta
         start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
 
