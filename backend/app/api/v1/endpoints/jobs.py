@@ -128,5 +128,3 @@ async def get_spark_ui(job_id: str, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error getting Spark UI for job {job_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
