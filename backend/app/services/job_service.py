@@ -274,17 +274,12 @@ class JobService:
         self, db: Session, date: datetime, user_id: Optional[str] = None
     ) -> List[Job]:
         """Get jobs that started on a specific date"""
-        # For now, get all jobs and filter (can be optimized with a repository method)
-        if user_id:
-            jobs_db = self.repository.get_by_user(db, user_id, limit=1000)
-        else:
-            jobs_db = self.repository.get_all(db, limit=1000)
+        from datetime import timedelta
+        start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = start_of_day + timedelta(days=1)
 
-        jobs = []
-        for job_db in jobs_db:
-            if job_db.start_time and job_db.start_time.date() == date.date():
-                jobs.append(self._job_model_to_details(job_db))
-        return jobs
+        jobs_db = self.repository.get_by_date_range(db, start_of_day, end_of_day, user_id)
+        return [self._job_model_to_details(j) for j in jobs_db]
 
 
 # Singleton instance

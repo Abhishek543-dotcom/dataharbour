@@ -41,6 +41,22 @@ class JobRepository(BaseRepository[Job]):
             query = query.filter(self.model.user_id == user_id)
         return query.offset(skip).limit(limit).all()
 
+    def get_by_date_range(
+        self,
+        db: Session,
+        start_date,
+        end_date,
+        user_id: Optional[str] = None,
+    ) -> List[Job]:
+        """Get jobs within a date range"""
+        query = db.query(self.model).filter(
+            self.model.start_time >= start_date,
+            self.model.start_time < end_date
+        )
+        if user_id:
+            query = query.filter(self.model.user_id == user_id)
+        return query.all()
+
     def get_by_cluster(
         self,
         db: Session,

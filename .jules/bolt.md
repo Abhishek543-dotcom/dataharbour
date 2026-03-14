@@ -1,0 +1,3 @@
+## 2024-03-14 - Python Filtering Anti-Pattern on Backend
+**Learning:** We had an endpoint fetching all database records into backend memory in a loop, filtering them using Python arrays (`[j for j in day_jobs if ...]`). This translates to full-table scans that severely multiply O(N) constraints. A single change to fetch matching ranges via the database dramatically speeds up analytics/trends calculations.
+**Action:** When filtering records by a particular field or a date, avoid querying all objects and writing list comprehensions in Python. Offload operations directly to database engines using SQL filter expressions.
