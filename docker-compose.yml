@@ -1,87 +1,75 @@
 services:
-  # Backend API service
-  backend:
-    build: ./backend
+  minio:
+    image: minio/minio
     ports:
-      - "8000:8000"  # FastAPI backend
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./data/notebooks:/data/notebooks
+      - "9000:9000"
     environment:
-      - DATABASE_URL=postgresql://admin:admin@postgres:5432/dataharbour
-      - JWT_SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
-      - JWT_ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      - ENABLE_AUTH=true
-      - ENABLE_REGISTRATION=true
-      - SPARK_MASTER_URL=spark://spark:7077
-      - SPARK_UI_URL=http://spark:4040
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=admin
-      - POSTGRES_DB=dataharbour
-      - ENVIRONMENT=development
-    depends_on:
-      - spark
-      - postgres
-    networks:
-      - dataharbour-network
-
-  # React Frontend (Production build)
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    networks:
-      - dataharbour-network
-
-  # Spark service - using Jupyter PySpark notebook which includes Spark
-  spark:
-    image: jupyter/pyspark-notebook:latest
-    ports:
-      - "4040:4040"  # Spark UI port
-      - "7077:7077"  # Spark Master port
-      - "8080:8080"  # Spark Master Web UI
-      - "8889:8888"  # Jupyter port (different from main jupyter service)
-    environment:
-      - JUPYTER_ENABLE_LAB=yes
-    command: start.sh spark-master
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
     volumes:
-      - ./data/spark:/home/jovyan/work
-    depends_on:
-      - postgres
-      - minio
-    networks:
-      - dataharbour-network
+      - ./workspace/data:/data
+    command: server /data
 
-  # PostgreSQL database service
   postgres:
     image: postgres:13
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=admin
-      - POSTGRES_DB=dataharbour
-      - PGDATA=/var/lib/postgresql/data/pgdata
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d dataharbour"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - dataharbour-network
+      - postgres_data:/var/lib/postgresql/data
 
-networks:
-  dataharbour-network:
-    driver: bridge
+  spark-master:
+    build: ./spark
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+      - "6066:6066"
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SPARK_MASTER_REST_ENABLED: "true"
+    volumes:
+      - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
+      - ./workspace:/workspace
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+
+  spark-worker:
+    build: ./spark
+    depends_on:
+      - spark-master
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
+      - ./workspace:/workspace
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+
+  fastapi:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      SPARK_MASTER_URL: spark://spark-master:7077
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./workspace:/workspace
+      - ./logs:/logs
+
 
 volumes:
-  postgres-data:
-  notebook-data:
+  postgres_data:
