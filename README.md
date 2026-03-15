@@ -1,417 +1,134 @@
-<h1 align="left" style="color:#2563eb;">
-  <img src="component/LOGO-white.svg" alt="DataHarbour Logo" height="40" style="vertical-align:middle; margin-right:12px;" />
-  <span style="font-size:2.5rem; vertical-align:middle; color:#2563eb;"><b>DataHarbour</b></span>
+<h1 align="center">
+  DataHarbour
 </h1>
 
-> A production-ready data engineering platform orchestrating Apache Spark, Airflow, Jupyter, MinIO, and PostgreSQL with a modern React frontend and secure FastAPI backend.
+<p align="center">
+  A lightweight, containerized data engineering platform with a comprehensive REST API for local development.
+</p>
 
-[![Production Ready](https://img.shields.io/badge/status-production%20ready-success)](https://github.com/Abhishek543-dotcom/dataharbour)
-[![Test Coverage](https://img.shields.io/badge/coverage-70%25+-success)](https://github.com/Abhishek543-dotcom/dataharbour)
-[![Security](https://img.shields.io/badge/security-hardened-blue)](https://github.com/Abhishek543-dotcom/dataharbour)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+## ✨ Overview
 
-## ✨ Features
+DataHarbour provides a powerful and effective environment for developing and running data processing jobs. It uses Docker Compose to orchestrate a stack of essential data engineering tools, including Apache Spark for processing, a FastAPI backend for job management, MinIO for object storage, and PostgreSQL for relational data.
 
-### Core Capabilities
-- **🚀 Apache Spark Integration** - Distributed data processing with PySpark and Delta Lake
-- **📊 Apache Airflow** - Workflow orchestration and DAG scheduling
-- **📓 Jupyter Notebooks** - Interactive development environment with notebook management
-- **💾 MinIO Storage** - S3-compatible object storage for data lakes
-- **🗄️ PostgreSQL** - Relational database with pgAdmin interface
-- **🎯 Real-time Monitoring** - WebSocket-based live updates and metrics
+The core of the platform is its comprehensive REST API, which allows for programmatic management of the entire data lifecycle—from data storage and cataloging to job execution and monitoring. This makes it an ideal environment for data engineers and developers who need a local, reproducible, and API-driven setup to build and test data pipelines and applications.
 
-### Modern Architecture
-- **⚡ FastAPI Backend** - 30+ REST API endpoints with WebSocket support
-- **⚛️ React Frontend** - Modern, component-based UI with Tailwind CSS
-- **🔐 Security Hardened** - Rate limiting, security headers, audit logging, input validation
-- **🧪 Well-Tested** - 70%+ code coverage with comprehensive test suite
-- **📚 Fully Documented** - Complete API docs, deployment guides, and troubleshooting
+##  Core Components
+
+- **🚀 FastAPI Backend**: A rich Python-based API to manage the entire platform.
+- **🔥 Apache Spark**: A standalone Spark cluster (Master + Worker) for distributed data processing.
+- **💾 MinIO**: An S3-compatible object storage service, perfect for a data lake setup.
+- **🐘 PostgreSQL**: A powerful open-source relational database.
+- **🐳 Docker Compose**: For easy, one-command setup and teardown of the entire environment.
+
+## ⚡ API Capabilities
+
+The FastAPI backend provides a powerful interface to control all aspects of the platform. Key features include:
+
+-   **Storage Management**: Create, delete, and manage buckets and files in **MinIO**.
+-   **Database Management**: Programmatically create and delete **PostgreSQL** databases and tables.
+-   **Job Submission**: Upload and execute **Spark jobs**.
+-   **Notebook Management**: Full CRUD (Create, Read, Update, Delete) and execution for **Jupyter Notebooks**.
+-   **Data Catalog**: Inspect PostgreSQL databases, tables, and **Apache Iceberg** table metadata.
+-   **Cluster Monitoring**: Get real-time status of the **Spark cluster**, including workers and applications.
+-   **Dashboard Endpoints**: Get aggregated stats perfect for a monitoring UI.
+
+**Explore all endpoints interactively via the [Swagger UI](http://localhost:8000/docs).**
 
 ## 🏗️ Project Structure
 
 ```
 dataharbour/
-├── backend/                    # FastAPI Backend
-│   ├── app/
-│   │   ├── api/v1/endpoints/  # REST API endpoints (30+)
-│   │   ├── core/              # Configuration & security
-│   │   ├── middleware/        # Security middleware
-│   │   ├── models/            # Pydantic schemas
-│   │   └── services/          # Business logic
-│   ├── tests/                 # Backend tests (70%+ coverage)
-│   ├── requirements.txt
-│   └── Dockerfile
+├── backend/                # FastAPI Backend
+│   ├── api/
+│   ├── core/
+│   ├── Dockerfile
+│   ├── main.py
+│   └── requirements.txt
 │
-├── frontend/                   # React Frontend
-│   ├── src/
-│   │   ├── components/        # Reusable UI components
-│   │   ├── pages/             # Page components
-│   │   ├── services/          # API client & WebSocket
-│   │   └── store/             # Zustand state management
-│   ├── package.json
-│   └── Dockerfile
+├── spark/                  # Spark Docker build context
+│   ├── Dockerfile
+│   └── spark-defaults.conf
 │
-├── scripts/                    # Utility scripts
-│   ├── generate-secrets.sh    # Generate secure passwords
-│   ├── backup.sh              # Automated backups
-│   └── restore.sh             # Restore from backup
+├── workspace/              # Shared volume for data and jobs
+│   ├── data/               # MinIO storage bucket
+│   ├── jobs/               # Your Spark job scripts
+│   └── notebooks/          # Jupyter notebooks
 │
-├── docs/                       # Documentation
-│   ├── TRACK1_IMPLEMENTATION.md
-│   ├── TRACK2_IMPLEMENTATION.md
-│   ├── TRACK3_IMPLEMENTATION.md
-│   ├── TRACK4_IMPLEMENTATION.md
-│   ├── TRACK5_IMPLEMENTATION.md
-│   ├── SECURITY_AUDIT.md
-│   └── PROJECT_SUMMARY.md
-│
-├── .github/workflows/          # CI/CD Pipeline
-│   └── ci.yml
-│
-├── docker-compose.yml          # Base configuration
-├── docker-compose.secure.yml   # Production security config
-├── .env.example                # Environment template
-└── README.md                   # This file
+├── .env.example            # Environment variable template
+├── docker-compose.yml      # Docker Compose configuration
+└── README.md               # This file
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose installed
-- At least 8GB RAM available
-- Ports 3000, 4040, 5432, 7077, 8000, 8081, 8888, 9000, 9001 available
 
-### 1. Clone Repository
+- Docker & Docker Compose
+- A tool to make API requests, like `curl` or Postman.
+
+### 1. Configure Environment
+
+First, create a `.env` file from the example template. This will store your credentials.
+
 ```bash
-git clone https://github.com/Abhishek543-dotcom/dataharbour.git
-cd dataharbour
+cp .env.example .env
 ```
 
-### 2. Generate Secrets (Production)
-```bash
-bash scripts/generate-secrets.sh > .env
-# Edit .env with your specific values
-nano .env
-```
+You can leave the default values for a quick start, but it's recommended to change the passwords for any real work.
 
-### 3. Start Services
+### 2. Start the Platform
 
-**Development:**
+Launch all services using Docker Compose.
+
 ```bash
 docker-compose up -d
 ```
 
-**Production (Secure):**
+The services will start in the background. You can check their status with `docker-compose ps`.
+
+### 3. Verify Deployment
+
+Check that the FastAPI backend is running and explore the API documentation:
+
+```
+Navigate to http://localhost:8000/docs in your browser.
+```
+
+This will open the interactive Swagger UI, where you can see all available endpoints and try them out directly.
+
+## 🌐 Accessing Services
+
+| Service | URL | Description |
+| :--- | :--- | :--- |
+| **FastAPI Docs** | http://localhost:8000/docs | Interactive API documentation (Swagger UI). |
+| **Spark Master UI** | http://localhost:8080/ | Monitor Spark cluster and jobs. |
+| **MinIO Console** | http://localhost:9000 | Manage data in object storage. |
+| **PostgreSQL Port** | `localhost:5432` | Connect via a database client. |
+
+Use the credentials from your `.env` file to log into MinIO and connect to PostgreSQL.
+
+## 💻 How to Use
+
+The primary way to interact with DataHarbour is through its REST API.
+
+1.  **Open the [FastAPI Docs](http://localhost:8000/docs)** in your browser.
+2.  **Explore the endpoints** for managing files, databases, notebooks, and jobs.
+3.  **Use the "Try it out"** button on any endpoint to send requests directly from your browser.
+
+For example, to submit a Spark job:
+1.  Place your job script (e.g., `my_job.py`) in the `./workspace/jobs/` directory.
+2.  Use the `/jobs/submit` endpoint in the Swagger UI to upload and run the script.
+
+## ⚙️ Configuration
+
+-   **Spark settings** can be modified in `spark/spark-defaults.conf`.
+-   **Backend dependencies** are managed in `backend/requirements.txt`.
+-   **Environment variables** for all services are controlled in the `.env` file.
+
+## 🧹 Cleanup
+
+To stop and remove all running containers, networks, and volumes:
+
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.secure.yml up -d
+docker-compose down -v
 ```
-
-### 4. Verify Deployment
-```bash
-# Check all services are running
-docker-compose ps
-
-# Test backend health
-curl http://localhost:8000/health
-```
-
-## 🌐 Access Services
-
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| **Frontend** | http://localhost:3000 | - |
-| **Backend API** | http://localhost:8000 | - |
-| **API Docs (Swagger)** | http://localhost:8000/docs | - |
-| **API Docs (ReDoc)** | http://localhost:8000/redoc | - |
-| **Jupyter Notebook** | http://localhost:8888 | See logs for token |
-| **Airflow** | http://localhost:8081 | admin / admin |
-| **Spark UI** | http://localhost:4040 | When jobs running |
-| **MinIO Console** | http://localhost:9001 | minioadmin / minioadmin |
-| **pgAdmin** | http://localhost:5050 | admin@example.com / admin |
-| **PostgreSQL** | localhost:5432 | admin / admin |
-
-### Get Jupyter Token
-```bash
-docker logs dataharbour-jupyter-1 2>&1 | grep "token="
-```
-
-## 📖 Documentation
-
-### Quick References
-- **[API Quick Start](backend/API_QUICKSTART.md)** - API endpoint reference
-- **[Backend README](backend/README.md)** - Backend architecture & development
-- **[Frontend README](frontend/README.md)** - Frontend architecture & development
-
-### Implementation Guides
-- **[Track 1: Backend API](docs/TRACK1_IMPLEMENTATION.md)** - FastAPI backend implementation
-- **[Track 2: Frontend Refactor](docs/TRACK2_IMPLEMENTATION.md)** - React frontend migration
-- **[Track 3: Security Hardening](docs/TRACK3_IMPLEMENTATION.md)** - Security features
-- **[Track 4: Testing & Quality](docs/TRACK4_IMPLEMENTATION.md)** - Testing framework
-- **[Track 5: Documentation & DevOps](docs/TRACK5_IMPLEMENTATION.md)** - DevOps practices
-
-### Additional Docs
-- **[Security Audit](docs/SECURITY_AUDIT.md)** - Security assessment & improvements
-- **[Project Summary](docs/PROJECT_SUMMARY.md)** - Complete project overview
-
-## 🔐 Security Features
-
-✅ **Environment-Based Secrets** - No hardcoded credentials
-✅ **Rate Limiting** - 60 requests/minute (configurable)
-✅ **Security Headers** - XSS, clickjacking, MIME-sniffing protection
-✅ **Audit Logging** - JSON-formatted security event logs
-✅ **Input Validation** - Sanitization against SQL injection, XSS
-✅ **CORS Protection** - Configurable allowed origins
-✅ **Secure Docker** - Non-root users, no-new-privileges
-
-**Risk Score:** 5.5/10 (MEDIUM) - 35% improvement from baseline
-
-## 🧪 Testing
-
-### Run Backend Tests
-```bash
-cd backend
-pip install -r requirements-dev.txt
-pytest --cov=app --cov-report=html
-```
-
-### Run Frontend Tests
-```bash
-cd frontend
-npm install
-npm run test:coverage
-```
-
-### Test Categories
-- **Unit Tests** - Fast, isolated function tests
-- **Integration Tests** - API endpoint testing
-- **Security Tests** - Validation, headers, rate limiting
-
-**Current Coverage:** 70%+ (enforced in CI/CD)
-
-## 🛠️ Development
-
-### Backend Development
-```bash
-cd backend
-pip install -r requirements.txt -r requirements-dev.txt
-
-# Run with hot reload
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Frontend Development
-```bash
-cd frontend
-npm install
-
-# Run dev server
-npm run dev
-```
-
-### Code Quality
-```bash
-# Backend formatting
-black backend/app
-isort backend/app
-flake8 backend/app
-
-# Frontend linting
-cd frontend
-npm run lint
-```
-
-### Pre-commit Hooks
-```bash
-pip install pre-commit
-pre-commit install
-pre-commit run --all-files
-```
-
-## 📊 API Examples
-
-### Get Dashboard Statistics
-```bash
-curl http://localhost:8000/api/v1/dashboard/stats
-```
-
-### Create Spark Job
-```bash
-curl -X POST http://localhost:8000/api/v1/jobs/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Example Job",
-    "code": "print(\"Hello Spark\")",
-    "executor_cores": 2,
-    "executor_memory": "2g"
-  }'
-```
-
-### WebSocket Connection
-```javascript
-const ws = new WebSocket('ws://localhost:8000/ws');
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Update:', data);
-};
-```
-
-See [API_QUICKSTART.md](backend/API_QUICKSTART.md) for complete endpoint reference.
-
-## 🔄 Backup & Recovery
-
-### Create Backup
-```bash
-bash scripts/backup.sh
-```
-
-### Restore from Backup
-```bash
-bash scripts/restore.sh /backups/backup_YYYYMMDD_HHMMSS.tar.gz
-```
-
-Backups include:
-- PostgreSQL database
-- MinIO data
-- Jupyter notebooks
-- Configuration files
-
-## 🚢 Deployment
-
-### Development
-```bash
-docker-compose up -d
-```
-
-### Staging
-```bash
-export ENVIRONMENT=staging
-bash scripts/generate-secrets.sh > .env
-docker-compose -f docker-compose.yml up -d
-```
-
-### Production
-```bash
-export ENVIRONMENT=production
-bash scripts/generate-secrets.sh > .env
-# Edit .env with production values
-docker-compose -f docker-compose.yml -f docker-compose.secure.yml up -d
-```
-
-## 🐛 Troubleshooting
-
-### Check Service Status
-```bash
-docker-compose ps
-docker-compose logs [service-name]
-```
-
-### Common Issues
-
-**Services won't start:**
-```bash
-docker-compose down
-docker-compose up -d --build
-```
-
-**Database connection issues:**
-```bash
-docker-compose exec postgres pg_isready -U admin
-```
-
-**View backend logs:**
-```bash
-docker-compose logs -f backend
-```
-
-See [TRACK5_IMPLEMENTATION.md](docs/TRACK5_IMPLEMENTATION.md) for complete troubleshooting guide.
-
-## 📈 Monitoring
-
-### View Audit Logs
-```bash
-docker-compose exec backend cat /data/logs/audit.log
-```
-
-### Check Resource Usage
-```bash
-docker stats
-```
-
-### Health Check
-```bash
-curl http://localhost:8000/health
-```
-
-## 🔮 Future Enhancements
-
-### High Priority
-- [ ] Authentication & Authorization (JWT, RBAC)
-- [ ] HTTPS/TLS with SSL certificates
-- [ ] Complete notebook editor with CodeMirror
-- [ ] Advanced monitoring dashboards
-
-### Medium Priority
-- [ ] TypeScript migration for type safety
-- [ ] Dark mode theme
-- [ ] Multi-tenancy support
-- [ ] Advanced scheduling with cron
-
-### Low Priority
-- [ ] Mobile application (React Native)
-- [ ] Plugin system for extensibility
-- [ ] Internationalization (i18n)
-
-## 📊 Project Statistics
-
-| Metric | Value |
-|--------|-------|
-| **Total Files** | 120+ |
-| **Lines of Code** | ~10,000 |
-| **Test Coverage** | 70%+ |
-| **API Endpoints** | 30+ |
-| **Security Score** | 5.5/10 (Medium) |
-| **Documentation** | 100% |
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Guidelines
-- Follow existing code style
-- Add tests for new features
-- Update documentation
-- Ensure CI/CD passes
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-Built with:
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
-- [React](https://react.dev/) - UI library
-- [Apache Spark](https://spark.apache.org/) - Distributed processing
-- [Apache Airflow](https://airflow.apache.org/) - Workflow orchestration
-- [MinIO](https://min.io/) - Object storage
-- [PostgreSQL](https://www.postgresql.org/) - Database
-
-## 📞 Support
-
-- **Documentation:** See [docs/](docs/) folder
-- **Issues:** [GitHub Issues](https://github.com/Abhishek543-dotcom/dataharbour/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/Abhishek543-dotcom/dataharbour/discussions)
-
----
-
-**Status:** ✅ Production Ready
-**Version:** 1.0.0
-**Last Updated:** 2025-01-15
-
-Made with ❤️ by the DataHarbour Team
