@@ -60,32 +60,131 @@ _TERMINAL = {"FINISHED", "FAILED", "KILLED", "ERROR"}
 
 
 # ─────────────────────────────────────────────────────────────
-# Job registry helpers
+# Job registry helpers (PostgreSQL)
 # ─────────────────────────────────────────────────────────────
 
-def _load_registry() -> dict:
-    if os.path.exists(JOB_REGISTRY_PATH):
-        try:
-            with open(JOB_REGISTRY_PATH, "r") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            return {}
-    return {}
+def _init_jobs_table():
+    conn = cursor = None
+    try:
+        conn = _get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                job_id VARCHAR PRIMARY KEY,
+                filename VARCHAR,
+                file_path VARCHAR,
+                submitted_at VARCHAR,
+                status VARCHAR,
+                spark_submission_id VARCHAR,
+                worker_host_port VARCHAR
+            )
+        """)
+        conn.commit()
+    except Exception as e:
+        print(f"Failed to initialize jobs table: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if cursor: cursor.close()
+        if conn: _release_db(conn)
 
+def _load_registry() -> dict:
+    _init_jobs_table()
+    conn = cursor = None
+    registry = {}
+    try:
+        conn = _get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT job_id, filename, file_path, submitted_at, status, spark_submission_id, worker_host_port
+            FROM jobs
+        """)
+        for row in cursor.fetchall():
+            registry[row[0]] = {
+                "job_id": row[0],
+                "filename": row[1],
+                "file_path": row[2],
+                "submitted_at": row[3],
+                "status": row[4],
+                "spark_submission_id": row[5],
+                "worker_host_port": row[6]
+            }
+    except Exception as e:
+        print(f"Failed to load registry: {e}")
+    finally:
+        if cursor: cursor.close()
+        if conn: _release_db(conn)
+    return registry
 
 def _save_registry(registry: dict) -> None:
-    os.makedirs(os.path.dirname(JOB_REGISTRY_PATH), exist_ok=True)
-    with open(JOB_REGISTRY_PATH, "w") as f:
-        json.dump(registry, f, indent=2, default=str)
-
+    # Not used directly anymore, left here for any missed references,
+    # but actual saving happens in _upsert_job or direct DB queries
+    pass
 
 def _upsert_job(job_id: str, **fields) -> dict:
-    registry         = _load_registry()
-    record           = registry.get(job_id, {"job_id": job_id})
-    record.update(fields)
-    registry[job_id] = record
-    _save_registry(registry)
-    return record
+    _init_jobs_table()
+    conn = cursor = None
+    try:
+        conn = _get_db()
+        cursor = conn.cursor()
+
+        # Check if exists
+        cursor.execute("SELECT job_id FROM jobs WHERE job_id = %s", (job_id,))
+        exists = cursor.fetchone() is not None
+
+        if not exists:
+            cursor.execute("""
+                INSERT INTO jobs (job_id, filename, file_path, submitted_at, status, spark_submission_id, worker_host_port)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (
+                job_id,
+                fields.get("filename"),
+                fields.get("file_path"),
+                fields.get("submitted_at"),
+                fields.get("status"),
+                fields.get("spark_submission_id"),
+                fields.get("worker_host_port")
+            ))
+        else:
+            updates = []
+            values = []
+            for k, v in fields.items():
+                if k in ("filename", "file_path", "submitted_at", "status", "spark_submission_id", "worker_host_port"):
+                    updates.append(f"{k} = %s")
+                    values.append(v)
+            if updates:
+                values.append(job_id)
+                query = f"UPDATE jobs SET {', '.join(updates)} WHERE job_id = %s"
+                cursor.execute(query, tuple(values))
+
+        conn.commit()
+
+        # return full record
+        cursor.execute("""
+            SELECT job_id, filename, file_path, submitted_at, status, spark_submission_id, worker_host_port
+            FROM jobs WHERE job_id = %s
+        """, (job_id,))
+        row = cursor.fetchone()
+        if row:
+            return {
+                "job_id": row[0],
+                "filename": row[1],
+                "file_path": row[2],
+                "submitted_at": row[3],
+                "status": row[4],
+                "spark_submission_id": row[5],
+                "worker_host_port": row[6]
+            }
+
+    except Exception as e:
+        print(f"Failed to upsert job: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if cursor: cursor.close()
+        if conn: _release_db(conn)
+
+    return {"job_id": job_id, **fields}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -219,18 +318,22 @@ def _get_s3():
         raise HTTPException(status_code=503, detail=f"MinIO unavailable: {exc}")
 
 
+from core.db import get_db_connection, release_db_connection
+
 def _get_db(db_name: str = None):
-    """Return a psycopg2 connection, or raise HTTP 503."""
+    """Return a psycopg2 connection from the pool, or raise HTTP 503."""
     try:
-        return psycopg2.connect(
-            host=Config.postgres_host,
-            port=Config.postgres_port,
-            user=Config.postgres_user,
-            password=Config.postgres_password,
-            database=db_name or Config.postgres_db,
-        )
+        return get_db_connection(db_name)
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"PostgreSQL unavailable: {exc}")
+
+def _release_db(conn, db_name: str = None):
+    """Release the connection back to the pool."""
+    if conn:
+        try:
+            release_db_connection(conn, db_name)
+        except Exception:
+            pass
 
 
 # ══════════════════════════════════════════════════════════════
@@ -238,7 +341,7 @@ def _get_db(db_name: str = None):
 # ══════════════════════════════════════════════════════════════
 
 @router.post("/jobs/submit")
-async def submit_job(file: UploadFile = File(...)):
+def submit_job(file: UploadFile = File(...)):
     """
     Upload a PySpark .py script and submit it to the Spark cluster.
 
@@ -259,7 +362,7 @@ async def submit_job(file: UploadFile = File(...)):
     app_name  = f"DataHarbour-{job_id[:8]}"
 
     with open(file_path, "wb") as fh:
-        fh.write(await file.read())
+        fh.write(file.file.read())
 
     # Raises 503/502 if Spark is down — don't leave orphan files
     try:
@@ -290,7 +393,7 @@ async def submit_job(file: UploadFile = File(...)):
 
 
 @router.get("/jobs")
-async def list_jobs(
+def list_jobs(
     status: Optional[str] = Query(
         None,
         description="Filter: SUBMITTED | RUNNING | FINISHED | FAILED | KILLED | ERROR"
@@ -298,7 +401,6 @@ async def list_jobs(
 ):
     """List all jobs from the registry with live status refresh for non-terminal jobs."""
     registry = _load_registry()
-    dirty    = False
     jobs     = []
 
     for job_id, job in registry.items():
@@ -310,29 +412,25 @@ async def list_jobs(
                 if new_state != job["status"]:
                     job["status"]           = new_state
                     job["worker_host_port"] = spark.get("workerHostPort")
-                    registry[job_id]        = job
-                    dirty = True
+                    _upsert_job(job_id, status=new_state, worker_host_port=job["worker_host_port"])
 
         if status is None or job.get("status", "").upper() == status.upper():
             jobs.append(job)
-
-    if dirty:
-        _save_registry(registry)
 
     jobs.sort(key=lambda j: j.get("submitted_at", ""), reverse=True)
     return {"jobs": jobs, "total": len(jobs)}
 
 
 @router.get("/jobs/running")
-async def get_running_jobs():
+def get_running_jobs():
     """Return all jobs in SUBMITTED or RUNNING state (live refresh)."""
-    result = await list_jobs(status=None)
+    result = list_jobs(status=None)
     active = [j for j in result["jobs"] if j.get("status") in ("SUBMITTED", "RUNNING")]
     return {"running_jobs": active, "count": len(active)}
 
 
 @router.get("/jobs/pending")
-async def get_pending_jobs():
+def get_pending_jobs():
     """Return jobs queued but not yet picked up by a worker (SUBMITTED)."""
     registry = _load_registry()
     pending  = [j for j in registry.values() if j.get("status") == "SUBMITTED"]
@@ -340,7 +438,7 @@ async def get_pending_jobs():
 
 
 @router.get("/jobs/completed")
-async def get_completed_jobs():
+def get_completed_jobs():
     """Return all terminal jobs: FINISHED, FAILED, KILLED, ERROR."""
     registry  = _load_registry()
     completed = [j for j in registry.values() if j.get("status") in _TERMINAL]
@@ -349,7 +447,7 @@ async def get_completed_jobs():
 
 
 @router.get("/jobs/{job_id}/status")
-async def get_job_status(job_id: str):
+def get_job_status(job_id: str):
     """
     Return the current status of a single job.
     Queries the Spark REST API live for non-terminal jobs.
@@ -369,8 +467,7 @@ async def get_job_status(job_id: str):
         if spark:
             job["status"]           = spark.get("driverState", job["status"])
             job["worker_host_port"] = spark.get("workerHostPort")
-            registry[job_id]        = job
-            _save_registry(registry)
+            _upsert_job(job_id, status=job["status"], worker_host_port=job["worker_host_port"])
             source = "spark"
 
     return {
@@ -386,7 +483,7 @@ async def get_job_status(job_id: str):
 
 
 @router.get("/jobs/{job_id}/logs")
-async def get_job_logs(
+def get_job_logs(
     job_id:   str,
     tail:     int = Query(200, ge=1, le=5000, description="Lines to return from the end"),
     log_type: str = Query("stdout", description="'stdout' or 'stderr'"),
@@ -414,8 +511,7 @@ async def get_job_logs(
             worker_host_port            = spark.get("workerHostPort")
             job["worker_host_port"]     = worker_host_port
             job["status"]               = spark.get("driverState", job.get("status"))
-            registry[job_id]            = job
-            _save_registry(registry)
+            _upsert_job(job_id, status=job["status"], worker_host_port=worker_host_port)
 
     log_content = None
     log_source  = "none"
@@ -468,7 +564,7 @@ async def get_job_logs(
 
 
 @router.delete("/jobs/{job_id}")
-async def cancel_job(job_id: str):
+def cancel_job(job_id: str):
     """Kill a RUNNING/SUBMITTED job via the Spark REST API."""
     registry = _load_registry()
     if job_id not in registry:
@@ -491,9 +587,7 @@ async def cancel_job(job_id: str):
             detail="Spark kill request failed — master may be unreachable"
         )
 
-    job["status"]    = "KILLED"
-    registry[job_id] = job
-    _save_registry(registry)
+    _upsert_job(job_id, status="KILLED")
     return {"message": f"Job '{job_id}' killed", "spark_submission_id": sub_id}
 
 
@@ -502,7 +596,7 @@ async def cancel_job(job_id: str):
 # ══════════════════════════════════════════════════════════════
 
 @router.post("/auth/login")
-async def login(credentials: LoginRequest):
+def login(credentials: LoginRequest):
     """Login — replace with JWT in production."""
     return {
         "success": True,
@@ -515,7 +609,7 @@ async def login(credentials: LoginRequest):
 
 
 @router.post("/auth/logout")
-async def logout():
+def logout():
     return {"success": True, "message": "Logged out successfully"}
 
 
@@ -524,7 +618,7 @@ async def logout():
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/dhfs/buckets")
-async def list_buckets():
+def list_buckets():
     """List all MinIO buckets."""
     s3 = _get_s3()
     try:
@@ -542,7 +636,7 @@ async def list_buckets():
 
 
 @router.post("/dhfs/buckets/{bucket_name}")
-async def create_bucket(bucket_name: str):
+def create_bucket(bucket_name: str):
     """Create a new MinIO bucket."""
     s3 = _get_s3()
     try:
@@ -556,7 +650,7 @@ async def create_bucket(bucket_name: str):
 
 
 @router.delete("/dhfs/buckets/{bucket_name}")
-async def delete_bucket(bucket_name: str):
+def delete_bucket(bucket_name: str):
     """Delete an empty MinIO bucket."""
     s3 = _get_s3()
     try:
@@ -575,7 +669,7 @@ async def delete_bucket(bucket_name: str):
 
 
 @router.get("/dhfs/files/{bucket_name}")
-async def list_files(bucket_name: str, prefix: str = ""):
+def list_files(bucket_name: str, prefix: str = ""):
     """List files in a MinIO bucket, optionally filtered by prefix."""
     s3 = _get_s3()
     try:
@@ -597,7 +691,7 @@ async def list_files(bucket_name: str, prefix: str = ""):
 
 
 @router.post("/dhfs/upload/{bucket_name}")
-async def upload_file(bucket_name: str, file: UploadFile = File(...)):
+def upload_file(bucket_name: str, file: UploadFile = File(...)):
     """
     Upload a file to a MinIO bucket.
     Auto-creates the bucket if it does not exist.
@@ -609,7 +703,7 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...)):
         except ClientError:
             s3.create_bucket(Bucket=bucket_name)
 
-        content = await file.read()
+        content = file.file.read()
         s3.put_object(Bucket=bucket_name, Key=file.filename, Body=content)
         return {
             "message":  f"File '{file.filename}' uploaded to '{bucket_name}'",
@@ -622,7 +716,7 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...)):
 
 
 @router.delete("/dhfs/files/{bucket_name}/{file_key:path}")
-async def delete_file(bucket_name: str, file_key: str):
+def delete_file(bucket_name: str, file_key: str):
     """Delete a specific file from a MinIO bucket."""
     s3 = _get_s3()
     try:
@@ -640,7 +734,7 @@ async def delete_file(bucket_name: str, file_key: str):
 
 
 @router.get("/dhfs/download/{bucket_name}/{file_key:path}")
-async def download_file(bucket_name: str, file_key: str):
+def download_file(bucket_name: str, file_key: str):
     """Generate a pre-signed download URL valid for 1 hour."""
     s3 = _get_s3()
     try:
@@ -659,7 +753,7 @@ async def download_file(bucket_name: str, file_key: str):
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/catalog/databases")
-async def list_databases():
+def list_databases():
     """List all user-created PostgreSQL databases with their sizes."""
     conn = cursor = None
     try:
@@ -679,11 +773,11 @@ async def list_databases():
         raise HTTPException(status_code=400, detail=str(exc))
     finally:
         if cursor: cursor.close()
-        if conn:   conn.close()
+        if conn: _release_db(conn)
 
 
 @router.post("/catalog/databases/{db_name}")
-async def create_database(db_name: str):
+def create_database(db_name: str):
     """Create a new PostgreSQL database."""
     conn = cursor = None
     try:
@@ -700,11 +794,11 @@ async def create_database(db_name: str):
         raise HTTPException(status_code=400, detail=str(exc))
     finally:
         if cursor: cursor.close()
-        if conn:   conn.close()
+        if conn: _release_db(conn)
 
 
 @router.delete("/catalog/databases/{db_name}")
-async def delete_database(db_name: str):
+def delete_database(db_name: str):
     """
     Drop a PostgreSQL database.
     Terminates active connections first to avoid lock errors.
@@ -729,11 +823,11 @@ async def delete_database(db_name: str):
         raise HTTPException(status_code=400, detail=str(exc))
     finally:
         if cursor: cursor.close()
-        if conn:   conn.close()
+        if conn: _release_db(conn)
 
 
 @router.get("/catalog/databases/{db_name}/tables")
-async def list_tables(db_name: str):
+def list_tables(db_name: str):
     """List all tables in a PostgreSQL database with their sizes."""
     conn = cursor = None
     try:
@@ -754,11 +848,11 @@ async def list_tables(db_name: str):
         raise HTTPException(status_code=400, detail=str(exc))
     finally:
         if cursor: cursor.close()
-        if conn:   conn.close()
+        if conn: _release_db(conn, db_name)
 
 
 @router.post("/catalog/databases/{db_name}/tables/{table_name}")
-async def create_table(db_name: str, table_name: str):
+def create_table(db_name: str, table_name: str):
     """Create a JSONB table in a PostgreSQL database."""
     conn = cursor = None
     try:
@@ -779,11 +873,11 @@ async def create_table(db_name: str, table_name: str):
         raise HTTPException(status_code=400, detail=str(exc))
     finally:
         if cursor: cursor.close()
-        if conn:   conn.close()
+        if conn: _release_db(conn, db_name)
 
 
 @router.delete("/catalog/databases/{db_name}/tables/{table_name}")
-async def delete_table(db_name: str, table_name: str):
+def delete_table(db_name: str, table_name: str):
     """Drop a table from a PostgreSQL database."""
     conn = cursor = None
     try:
@@ -799,32 +893,33 @@ async def delete_table(db_name: str, table_name: str):
         raise HTTPException(status_code=400, detail=str(exc))
     finally:
         if cursor: cursor.close()
-        if conn:   conn.close()
+        if conn: _release_db(conn, db_name)
 
 
 @router.get("/catalog/iceberg/tables")
-async def list_iceberg_tables():
+def list_iceberg_tables():
     """List all Iceberg tables in the workspace."""
     tables_path = "/workspace/iceberg/dataharbour"
     try:
         if not os.path.exists(tables_path):
             return {"tables": [], "count": 0}
-        tables = [
-            {
-                "name":        name,
-                "path":        os.path.join(tables_path, name),
-                "hasMetadata": os.path.exists(os.path.join(tables_path, name, "metadata")),
-            }
-            for name in os.listdir(tables_path)
-            if os.path.isdir(os.path.join(tables_path, name))
-        ]
+
+        tables = []
+        with os.scandir(tables_path) as it:
+            for entry in it:
+                if entry.is_dir():
+                    tables.append({
+                        "name":        entry.name,
+                        "path":        entry.path,
+                        "hasMetadata": os.path.exists(os.path.join(entry.path, "metadata")),
+                    })
         return {"tables": tables, "count": len(tables)}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/catalog/iceberg/tables/{table_name}")
-async def get_iceberg_table_details(table_name: str):
+def get_iceberg_table_details(table_name: str):
     """Return the latest Iceberg metadata JSON for a table."""
     metadata_path = f"/workspace/iceberg/dataharbour/{table_name}/metadata"
     try:
@@ -849,23 +944,22 @@ async def get_iceberg_table_details(table_name: str):
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/notebooks")
-async def list_notebooks():
+def list_notebooks():
     """List all Jupyter notebooks sorted by last-modified date."""
     try:
         if not os.path.exists(NOTEBOOKS_DIR):
             return {"notebooks": [], "count": 0}
         notebooks = []
-        for fname in os.listdir(NOTEBOOKS_DIR):
-            if not fname.endswith(".ipynb"):
-                continue
-            fpath = os.path.join(NOTEBOOKS_DIR, fname)
-            stat  = os.stat(fpath)
-            notebooks.append({
-                "id":           fname,
-                "name":         fname,
-                "created":      datetime.fromtimestamp(stat.st_ctime).isoformat(),
-                "lastModified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-            })
+        with os.scandir(NOTEBOOKS_DIR) as it:
+            for entry in it:
+                if entry.is_file() and entry.name.endswith(".ipynb"):
+                    stat = entry.stat()
+                    notebooks.append({
+                        "id":           entry.name,
+                        "name":         entry.name,
+                        "created":      datetime.fromtimestamp(stat.st_ctime).isoformat(),
+                        "lastModified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    })
         notebooks.sort(key=lambda n: n["lastModified"], reverse=True)
         return {"notebooks": notebooks, "count": len(notebooks)}
     except Exception as exc:
@@ -873,7 +967,7 @@ async def list_notebooks():
 
 
 @router.get("/notebooks/{notebook_name}")
-async def get_notebook(notebook_name: str):
+def get_notebook(notebook_name: str):
     """Return the full JSON content of a notebook."""
     path = os.path.join(NOTEBOOKS_DIR, notebook_name)
     try:
@@ -891,7 +985,7 @@ async def get_notebook(notebook_name: str):
 
 
 @router.post("/notebooks")
-async def create_notebook(name: str):
+def create_notebook(name: str):
     """Create a new empty notebook with a PySpark starter cell."""
     if not name.endswith(".ipynb"):
         name = f"{name}.ipynb"
@@ -934,7 +1028,7 @@ async def create_notebook(name: str):
 
 
 @router.put("/notebooks/{notebook_name}")
-async def save_notebook(notebook_name: str, content: NotebookContent):
+def save_notebook(notebook_name: str, content: NotebookContent):
     """Save (overwrite) a notebook's content."""
     path = os.path.join(NOTEBOOKS_DIR, notebook_name)
     try:
@@ -947,7 +1041,7 @@ async def save_notebook(notebook_name: str, content: NotebookContent):
 
 
 @router.delete("/notebooks/{notebook_name}")
-async def delete_notebook(notebook_name: str):
+def delete_notebook(notebook_name: str):
     """Delete a notebook."""
     path = os.path.join(NOTEBOOKS_DIR, notebook_name)
     try:
@@ -962,7 +1056,7 @@ async def delete_notebook(notebook_name: str):
 
 
 @router.post("/notebooks/{notebook_name}/execute")
-async def execute_notebook(notebook_name: str):
+def execute_notebook(notebook_name: str):
     """
     Extract all code cells from a notebook, write them as a .py file,
     and submit to the Spark cluster — same pipeline as POST /jobs/submit.
@@ -1030,7 +1124,7 @@ async def execute_notebook(notebook_name: str):
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/cluster/status")
-async def get_cluster_status():
+def get_cluster_status():
     """Fetch live Spark cluster status from the master Web UI JSON API."""
     try:
         resp = requests.get(f"{Config.spark_rest_url}/json/", timeout=5)
@@ -1059,7 +1153,7 @@ async def get_cluster_status():
 
 
 @router.get("/cluster/workers")
-async def get_cluster_workers():
+def get_cluster_workers():
     """Return the list of registered Spark workers."""
     try:
         resp = requests.get(f"{Config.spark_rest_url}/json/", timeout=5)
@@ -1071,7 +1165,7 @@ async def get_cluster_workers():
 
 
 @router.get("/cluster/applications")
-async def get_cluster_applications():
+def get_cluster_applications():
     """Return active and completed Spark applications from the master."""
     try:
         resp = requests.get(f"{Config.spark_rest_url}/json/", timeout=5)
@@ -1088,11 +1182,12 @@ async def get_cluster_applications():
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/stats/summary")
-async def get_stats_summary():
+def get_stats_summary():
     """Aggregate counts for the dashboard overview panel."""
     notebooks_count = 0
     if os.path.exists(NOTEBOOKS_DIR):
-        notebooks_count = sum(1 for f in os.listdir(NOTEBOOKS_DIR) if f.endswith(".ipynb"))
+        with os.scandir(NOTEBOOKS_DIR) as it:
+            notebooks_count = sum(1 for entry in it if entry.is_file() and entry.name.endswith(".ipynb"))
 
     registry     = _load_registry()
     jobs_count   = len(registry)
@@ -1119,7 +1214,7 @@ async def get_stats_summary():
         pass
     finally:
         if cursor: cursor.close()
-        if conn:   conn.close()
+        if conn: _release_db(conn)
 
     return {
         "notebooks":   notebooks_count,
@@ -1132,21 +1227,21 @@ async def get_stats_summary():
 
 
 @router.get("/activities/recent")
-async def get_recent_activities():
+def get_recent_activities():
     """Return the 10 most recent activities across notebooks and jobs."""
     activities = []
 
     if os.path.exists(NOTEBOOKS_DIR):
-        for fname in os.listdir(NOTEBOOKS_DIR):
-            if not fname.endswith(".ipynb"):
-                continue
-            fpath = os.path.join(NOTEBOOKS_DIR, fname)
-            activities.append({
-                "type":   "notebook",
-                "action": "Modified",
-                "name":   fname,
-                "time":   datetime.fromtimestamp(os.stat(fpath).st_mtime).isoformat(),
-            })
+        with os.scandir(NOTEBOOKS_DIR) as it:
+            for entry in it:
+                if entry.is_file() and entry.name.endswith(".ipynb"):
+                    stat = entry.stat()
+                    activities.append({
+                        "type":   "notebook",
+                        "action": "Modified",
+                        "name":   entry.name,
+                        "time":   datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    })
 
     for job in _load_registry().values():
         activities.append({

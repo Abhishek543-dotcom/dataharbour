@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from core.db import init_db_pool, close_db_pool
 from api.routes import router
 
 app = FastAPI(
@@ -22,9 +23,11 @@ app.include_router(router)
 
 scheduler = AsyncIOScheduler()
 
-# Initialize scheduler
+# Initialize scheduler and DB pool
+init_db_pool()
 scheduler.start()
 
 @app.on_event("shutdown")
 def shutdown_event():
     scheduler.shutdown()
+    close_db_pool()
