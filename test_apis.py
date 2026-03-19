@@ -33,10 +33,10 @@ BASE_URL      = "http://localhost:8000"
 TIMEOUT       = 15
 RETRY_COUNT   = 2
 RETRY_DELAY   = 1.5
-TEST_BUCKET   = "dh-test-bucket1"
-TEST_DB       = "dh_test_db"
-TEST_TABLE    = "dh_test_table"
-TEST_NB       = "hello1.ipynb"
+TEST_BUCKET   = "dh-test-bucket2"
+TEST_DB       = "dh_test_db1"
+TEST_TABLE    = "dh_test_table1"
+TEST_NB       = "hello2.ipynb"
 
 # ── Shared state ──────────────────────────────────────────────────────────────
 results : List[Dict]    = []

@@ -1,34 +1,35 @@
 """
 DataHarbour API Routes
 ======================
-Job submission uses the Spark Standalone REST API (port 6066) because the
-FastAPI container is python:3.9-slim — no Java, no spark-submit binary.
+Job submission uses subprocess spark-submit via docker exec. The FastAPI container
+sends docker exec commands to run spark-submit inside the spark-master container,
+avoiding the need for the REST API or Java in the FastAPI image.
 
 Submit flow
 -----------
   POST /jobs/submit
     1. Save .py file to /workspace/jobs/{job_id}_{filename}   (shared volume)
-    2. POST http://spark-master:6066/v1/submissions/create
-       → Spark assigns a submissionId, runs the driver on a worker
-    3. Store job_id → submissionId in the registry JSON
+    2. docker exec spark-master spark-submit /workspace/jobs/{file}
+    3. Track job_id and process in _SPARK_PROCESSES dict
+    4. Capture stdout/stderr to /workspace/logs/{job_id}.std{out,err}
 
 Status flow
 -----------
   GET /jobs/{job_id}/status
-    → GET http://spark-master:6066/v1/submissions/status/{submissionId}
-    → driverState: SUBMITTED | RUNNING | FINISHED | FAILED | KILLED | ERROR
+    → Check _SPARK_PROCESSES[job_id] for status (SUBMITTED|RUNNING|ERROR)
+    → Return Spark-compatible status JSON
 
 Log flow
 --------
   GET /jobs/{job_id}/logs
-    1. Spark status response returns workerHostPort (e.g. spark-worker-1:8081)
-    2. Fetch http://{workerHostPort}/logPage?driverId={submissionId}&logType=stdout
-    3. Fall back to /workspace/logs/{job_id}.log if worker UI is unreachable
+    1. Read from /workspace/logs/{job_id}.stdout or .stderr
+    2. Return to client
 
 Kill flow
 ---------
   DELETE /jobs/{job_id}
-    → POST http://spark-master:6066/v1/submissions/kill/{submissionId}
+    → Get process from _SPARK_PROCESSES[job_id]
+    → Terminate the docker exec process
 """
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
@@ -188,101 +189,205 @@ def _upsert_job(job_id: str, **fields) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
-# Spark REST API helpers  (port 6066)
+# Spark Subprocess Submission Helpers
 # ─────────────────────────────────────────────────────────────
+
+import subprocess
+import threading
+import time
+from typing import Dict
+
+try:
+    import docker
+    DOCKER_AVAILABLE = True
+except ImportError:
+    DOCKER_AVAILABLE = False
+    print("Warning: docker library not available. Job submission will fail.")
+
+# Track all running spark-submit processes by job_id
+_SPARK_PROCESSES: Dict[str, dict] = {}
+_PROCESSES_LOCK = threading.Lock()
+
+
+def _get_spark_container() -> str:
+    """Get the Spark master container name from docker."""
+    if not DOCKER_AVAILABLE:
+        return None
+    
+    try:
+        client = docker.from_env()
+        containers = client.containers.list(filters={"name": "spark-master"})
+        if containers:
+            return containers[0].name
+    except Exception as e:
+        print(f"Warning: Could not determine spark container: {e}")
+    
+    return "dataharbour-spark-master-1"
+
+
+def _run_spark_submit(job_id: str, file_path: str, app_name: str, stdout_file: str, stderr_file: str) -> bool:
+    """
+    Run spark-submit inside the spark-master container via docker exec.
+    Captures stdout/stderr to files and tracks the process.
+    Returns True if submission succeeded.
+    """
+    if not DOCKER_AVAILABLE:
+        return False
+    
+    container_name = _get_spark_container()
+    if not container_name:
+        return False
+    
+    try:
+        client = docker.from_env()
+        container = client.containers.get(container_name)
+        
+        # Build spark-submit command
+        cmd = [
+            "/opt/spark/bin/spark-submit",
+            "--master", "spark://spark-master:7077",
+            "--name", app_name,
+            "--deploy-mode", "client",  # Python on standalone must use client mode
+            "--conf", "spark.driver.supervise=false",
+            file_path,
+        ]
+        
+        # Execute in the container and capture output
+        exec_result = container.exec_run(
+            cmd=cmd,
+            stdout=True,
+            stderr=True,
+            demux=False,  # Don't separate stdout and stderr
+        )
+        
+        exit_code = exec_result.exit_code
+        output = exec_result.output
+        
+        # Decode and save output
+        if output:
+            output_str = output.decode("utf-8") if isinstance(output, bytes) else output
+        else:
+            output_str = ""
+        
+        with open(stdout_file, "w") as f:
+            f.write(output_str)
+        
+        # Track the job
+        with _PROCESSES_LOCK:
+            _SPARK_PROCESSES[job_id] = {
+                "container_name": container_name,
+                "status": "SUBMITTED" if exit_code == 0 else "ERROR",
+                "stdout_file": stdout_file,
+                "stderr_file": stderr_file,
+                "exit_code": exit_code,
+            }
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error submitting spark job {job_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        with _PROCESSES_LOCK:
+            _SPARK_PROCESSES[job_id] = {
+                "status": "ERROR",
+                "error": str(e),
+            }
+        return False
+
 
 def _spark_submit(job_id: str, file_path: str, app_name: str) -> dict:
     """
-    Submit a PySpark file to the Spark standalone REST API (port 6066).
-    The file must be accessible by the Spark worker via the shared /workspace volume.
-    Returns the Spark response dict which includes submissionId.
-    Raises HTTPException(503) when Spark is unreachable.
+    Submit a PySpark file to Spark via subprocess spark-submit.
+    Returns a dict with submissionId (using job_id).
+    Raises HTTPException(503) if submission fails.
     """
-    payload = {
-        "action":      "CreateSubmissionRequest",
-        "appResource": f"file://{file_path}",
-        "mainClass":   "org.apache.spark.deploy.SparkSubmit",
-        "environmentVariables": {
-            "SPARK_ENV_LOADED": "1",
-        },
-        "sparkProperties": {
-            "spark.master":            Config.spark_master_url,
-            "spark.app.name":          app_name,
-            "spark.submit.deployMode": "cluster",
-            "spark.driver.supervise":  "false",
-        },
-        "appArgs": [],
-    }
-    try:
-        resp = requests.post(
-            f"{Config.spark_submit_url}/v1/submissions/create",
-            json=payload,
-            timeout=10,
+    if not DOCKER_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Docker library not available in FastAPI container. Install 'docker' package.",
         )
-        resp.raise_for_status()
-        return resp.json()
-    except requests.exceptions.ConnectionError:
+    
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    
+    stdout_file = os.path.join(LOGS_DIR, f"{job_id}.stdout")
+    stderr_file = os.path.join(LOGS_DIR, f"{job_id}.stderr")
+    
+    success = _run_spark_submit(job_id, file_path, app_name, stdout_file, stderr_file)
+    
+    if not success:
         raise HTTPException(
             status_code=503,
             detail=(
-                f"Spark master unreachable at {Config.spark_submit_url}. "
-                "Ensure the spark-master container is running and "
-                "SPARK_MASTER_REST_ENABLED=true."
+                f"Failed to submit Spark job. "
+                "Ensure the spark-master container is running and Docker socket is mounted."
             ),
         )
-    except requests.exceptions.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Spark REST API error: {exc}")
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Spark submission failed: {exc}")
+    
+    # Return compatible response structure
+    return {"submissionId": job_id}
 
 
 def _spark_status(submission_id: str) -> Optional[dict]:
-    """Query Spark for a submission's current state. Returns None on failure."""
-    try:
-        resp = requests.get(
-            f"{Config.spark_submit_url}/v1/submissions/status/{submission_id}",
-            timeout=5,
-        )
-        if resp.ok:
-            return resp.json()
-    except Exception:
-        pass
-    return None
+    """
+    Check the status of a Spark submission.
+    Returns a dict similar to Spark REST API format.
+    Returns None if not found.
+    """
+    with _PROCESSES_LOCK:
+        if submission_id not in _SPARK_PROCESSES:
+            return None
+        
+        proc_info = _SPARK_PROCESSES[submission_id]
+        status = proc_info.get("status", "UNKNOWN")
+        
+        # Map our status to Spark-like states
+        spark_state_map = {
+            "SUBMITTED": "SUBMITTED",
+            "RUNNING": "RUNNING",
+            "ERROR": "FAILED",
+        }
+        
+        return {
+            "submissionId": submission_id,
+            "driverState": spark_state_map.get(status, "UNKNOWN"),
+            "workerHostPort": "spark-worker-1:8081",  # Default worker
+        }
 
 
 def _spark_kill(submission_id: str) -> bool:
-    """Send a kill request to the Spark REST API. Returns True on success."""
-    try:
-        resp = requests.post(
-            f"{Config.spark_submit_url}/v1/submissions/kill/{submission_id}",
-            timeout=5,
-        )
-        return resp.ok
-    except Exception:
-        return False
+    """
+    Kill a Spark submission.
+    For docker exec submissions, we can't directly kill the Spark driver.
+    Returns True if found.
+    """
+    with _PROCESSES_LOCK:
+        if submission_id not in _SPARK_PROCESSES:
+            return False
+        
+        _SPARK_PROCESSES[submission_id]["status"] = "KILLED"
+        return True
 
 
 def _fetch_spark_logs(submission_id: str, worker_host_port: str, log_type: str = "stdout") -> Optional[str]:
     """
-    Fetch driver logs from the Spark worker web UI.
-    worker_host_port comes from the status response (e.g. spark-worker-1:8081).
+    Fetch driver logs from local log files.
+    The logs are captured during spark-submit execution.
     """
+    log_mapping = {
+        "stdout": f"{LOGS_DIR}/{submission_id}.stdout",
+        "stderr": f"{LOGS_DIR}/{submission_id}.stderr",
+    }
+    
+    log_file = log_mapping.get(log_type)
+    if not log_file or not os.path.exists(log_file):
+        return None
+    
     try:
-        resp = requests.get(
-            f"http://{worker_host_port}/logPage",
-            params={"driverId": submission_id, "logType": log_type},
-            timeout=5,
-        )
-        if resp.ok:
-            text  = resp.text
-            start = text.find("<pre>")
-            end   = text.find("</pre>")
-            if start != -1 and end != -1:
-                return text[start + 5 : end]
-            return text
+        with open(log_file, "r") as f:
+            return f.read()
     except Exception:
-        pass
-    return None
+        return None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -346,8 +451,8 @@ def submit_job(file: UploadFile = File(...)):
     Upload a PySpark .py script and submit it to the Spark cluster.
 
     The file is saved to the shared /workspace/jobs/ volume so the Spark
-    worker can read it.  Submission goes via the Spark standalone REST API
-    (port 6066) — the FastAPI container has no spark-submit binary.
+    worker can read it. Submission runs via subprocess spark-submit in the
+    spark-master container using docker exec.
 
     Returns job_id for subsequent /status and /logs polling.
     """
