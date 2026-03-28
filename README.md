@@ -1,178 +1,226 @@
-# DataHarbour
+# DataHarbour 🚢
 
-A lightweight, containerized data engineering platform with a comprehensive REST API for local development.
+> A lightweight, containerized **Data Lakehouse platform** with 30+ REST API endpoints.  
+> Manage Apache Spark jobs, MinIO object storage, PostgreSQL catalogs, Apache Iceberg tables, notebooks, and cluster monitoring — **all through a single REST API**.
+
+---
 
 ## ✨ Overview
 
-DataHarbour provides a powerful and effective environment for developing and running data processing jobs. It uses Docker Compose to orchestrate a stack of essential data engineering tools, including Apache Spark for processing, a FastAPI backend for job management, MinIO for object storage, and PostgreSQL for relational data.
+DataHarbour is a **self-contained, Docker-based data engineering platform** that runs entirely on your laptop. Think of it as a mini **Databricks / AWS EMR** for local development.
 
-The core of the platform is its comprehensive REST API, which allows for programmatic management of the entire data lifecycle—from data storage and cataloging to job execution and monitoring. This makes it an ideal environment for data engineers and developers who need a local, reproducible, and API-driven setup to build and test data pipelines and applications.
+| Capability | What You Can Do |
+|---|---|
+| **Spark Job Management** | Upload, submit, monitor, and kill PySpark jobs via REST API |
+| **Object Storage (MinIO)** | S3-compatible file storage with bucket and file CRUD operations |
+| **Relational Database (PostgreSQL)** | Database/table creation, metadata catalog |
+| **Apache Iceberg** | Open table format for data lakehouse with metadata browsing |
+| **Notebook Management** | Create, edit, execute Jupyter notebooks as Spark jobs |
+| **Cluster Monitoring** | Real-time Spark cluster health, worker stats, application tracking |
+| **Dashboard Stats** | Aggregated metrics for an operational overview |
 
-## 🏗️ Project Structure
+---
+
+## 🏗️ Architecture
 
 ```
-dataharbour/
-├── backend/                # FastAPI Backend
-│   ├── api/
-│   ├── core/
-│   ├── Dockerfile
-│   ├── main.py
-│   └── requirements.txt
-├── spark/                  # Spark Docker build context
-│   ├── Dockerfile
-│   └── spark-defaults.conf
-├── workspace/              # Shared volume for data and jobs
-│   ├── data/               # MinIO storage bucket
-│   ├── jobs/               # Your Spark job scripts
-│   └── notebooks/          # Jupyter notebooks
-├── .env.example            # Environment variable template
-├── docker-compose.yml      # Docker Compose configuration
-├── test_apis.py           # Comprehensive API test script
-└── README.md               # This file
+┌────────────────────────────────────────────────────────────────┐
+│                     CLIENT (curl / Postman / UI)                │
+└───────────────────────────┬────────────────────────────────────┘
+                            │ HTTP REST (port 8000)
+                            ▼
+┌────────────────────────────────────────────────────────────────┐
+│                    FastAPI Backend (Python)                      │
+│  Auth │ Jobs │ Storage │ Catalog │ Notebooks │ Cluster │ Stats  │
+└───┬───────────┬──────────────┬─────────────────────────────────┘
+    │           │              │
+    ▼           ▼              ▼
+┌────────┐ ┌────────┐  ┌────────────┐
+│ Spark  │ │ MinIO  │  │ PostgreSQL │
+│ Master │ │  (S3)  │  │   (Meta)   │
+│ :7077  │ │ :9000  │  │   :5432    │
+│ Worker │ │        │  │            │
+└────────┘ └────────┘  └────────────┘
 ```
+
+---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+```bash
+# 1. Clone the repository
+git clone <repo-url> && cd dataharbour
 
-- Docker & Docker Compose
-- A tool to make API requests, like `curl` or Postman.
+# 2. Start everything (one command!)
+docker-compose up -d --build
 
-### 1. Configure Environment
+# 3. Open the API docs
+# → http://localhost:8000/docs
 
-First, create a `.env` file from the example template. This will store your credentials.
+# 4. Run the test suite
+python test_apis.py
+```
+
+**Ports:**
+| Service | Port | URL |
+|---------|------|-----|
+| FastAPI (REST API) | 8000 | http://localhost:8000/docs |
+| Spark Master UI | 8080 | http://localhost:8080 |
+| MinIO API | 9000 | http://localhost:9000 |
+| MinIO Console | 9001 | http://localhost:9001 |
+| PostgreSQL | 5432 | `psql -h localhost -U postgres` |
+
+---
+
+## 📁 Project Structure
+
+```
+dataharbour/
+├── backend/                  # FastAPI Backend
+│   ├── main.py               # App entry point (lifespan, CORS, logging)
+│   ├── requirements.txt      # Python dependencies
+│   ├── Dockerfile            # API container image
+│   ├── api/
+│   │   ├── helpers.py        # Shared: S3 client, DB pool, job registry, models
+│   │   ├── routes.py         # Aggregator (includes all domain routers)
+│   │   └── routes/           # Domain-based route modules
+│   │       ├── auth.py       # POST /auth/login, /auth/logout
+│   │       ├── jobs.py       # POST /jobs/submit, GET /jobs, DELETE /jobs/{id}
+│   │       ├── storage.py    # GET/POST/DELETE /dhfs/buckets, /dhfs/files
+│   │       ├── catalog.py    # Databases, Tables, Iceberg
+│   │       ├── notebooks.py  # CRUD + execute notebooks
+│   │       ├── cluster.py    # Spark cluster monitoring
+│   │       └── dashboard.py  # Stats summary, recent activities
+│   └── core/
+│       ├── config.py         # Environment variable configuration
+│       ├── db.py             # PostgreSQL ThreadedConnectionPool
+│       ├── scheduler.py      # APScheduler wrapper
+│       └── spark_client.py   # Docker-based spark-submit client
+├── spark/                    # Spark Docker image
+│   ├── Dockerfile            # Spark 3.5.0 + Iceberg + Hadoop-AWS + JDBC jars
+│   └── spark-defaults.conf   # S3A → MinIO, Iceberg catalog config
+├── workspace/                # Shared Docker volume
+│   ├── data/                 # MinIO storage
+│   ├── jobs/                 # PySpark scripts (.py files)
+│   ├── logs/                 # Job stdout/stderr logs
+│   ├── notebooks/            # Jupyter .ipynb files
+│   └── iceberg/              # Iceberg warehouse
+├── .env                      # Environment variables
+├── docker-compose.yml        # Multi-container orchestration (5 services)
+├── test_apis.py              # Comprehensive API test suite
+└── INTERVIEW_GUIDE.md        # Complete interview preparation guide
+```
+
+---
+
+## 📡 API Endpoints (30+)
+
+### System
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Landing page |
+| GET | `/health` | Liveness probe |
+| GET | `/docs` | Swagger UI |
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/login` | Login (demo token) |
+| POST | `/auth/logout` | Logout |
+
+### Jobs (Spark)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/jobs/submit` | Upload & submit PySpark script |
+| GET | `/jobs` | List all jobs (optional status filter) |
+| GET | `/jobs/running` | List active jobs |
+| GET | `/jobs/pending` | List queued jobs |
+| GET | `/jobs/completed` | List terminal-state jobs |
+| GET | `/jobs/{job_id}/status` | Get single job status (live) |
+| GET | `/jobs/{job_id}/logs` | Get stdout/stderr logs |
+| DELETE | `/jobs/{job_id}` | Kill a running job |
+
+### Storage (MinIO/DHFS)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/dhfs/buckets` | List all buckets |
+| POST | `/dhfs/buckets/{name}` | Create bucket |
+| DELETE | `/dhfs/buckets/{name}` | Delete bucket |
+| GET | `/dhfs/files/{bucket}` | List files in bucket |
+| POST | `/dhfs/upload/{bucket}` | Upload file |
+| DELETE | `/dhfs/files/{bucket}/{key}` | Delete file |
+| GET | `/dhfs/download/{bucket}/{key}` | Pre-signed download URL |
+
+### Catalog (PostgreSQL)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/catalog/databases` | List databases with sizes |
+| POST | `/catalog/databases/{name}` | Create database |
+| DELETE | `/catalog/databases/{name}` | Drop database |
+| GET | `/catalog/databases/{db}/tables` | List tables |
+| POST | `/catalog/databases/{db}/tables/{name}` | Create JSONB table |
+| DELETE | `/catalog/databases/{db}/tables/{name}` | Drop table |
+
+### Catalog (Iceberg)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/catalog/iceberg/tables` | List Iceberg tables |
+| GET | `/catalog/iceberg/tables/{name}` | Get table metadata |
+
+### Notebooks
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/notebooks` | List all notebooks |
+| POST | `/notebooks` | Create new notebook |
+| GET | `/notebooks/{name}` | Get notebook content |
+| PUT | `/notebooks/{name}` | Save/update notebook |
+| DELETE | `/notebooks/{name}` | Delete notebook |
+| POST | `/notebooks/{name}/execute` | Execute as Spark job |
+
+### Cluster Monitoring
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/cluster/status` | Cluster health |
+| GET | `/cluster/workers` | Registered workers |
+| GET | `/cluster/applications` | Active & completed apps |
+
+### Dashboard
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/stats/summary` | Aggregated metrics |
+| GET | `/activities/recent` | Last 10 activities |
+
+---
+
+## 🧪 Testing
 
 ```bash
-cp .env.example .env
+# Run the full test suite
+python test_apis.py
+
+# Custom URL
+python test_apis.py http://localhost:8000
+
+# Generate JSON report
+python test_apis.py --json report.json
 ```
 
-You can leave the default values for a quick start, but it's recommended to change the passwords for any real work.
+---
 
-### 2. Start the Platform
+## 🔧 Technology Stack
 
-Launch all services using Docker Compose.
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| API Framework | FastAPI | REST API with auto-generated Swagger docs |
+| Processing | Apache Spark 3.5.0 | Distributed data processing |
+| Object Storage | MinIO | S3-compatible local storage |
+| Database | PostgreSQL 13 | Metadata store, job registry |
+| Table Format | Apache Iceberg 1.4.3 | ACID transactions, schema evolution |
+| Orchestration | Docker Compose | Multi-container management |
+| Scheduler | APScheduler | Background task scheduling |
 
-```bash
-docker-compose up -d
-```
-
-The services will start in the background. You can check their status with `docker-compose ps`.
-
-### 3. Verify Deployment
-
-Check that the FastAPI backend is running and explore the API documentation:
-
-```
-Navigate to http://localhost:8000/docs in your browser.
-```
-
-This will open the interactive Swagger UI, where you can see all available endpoints and try them out directly.
-
-## 🧪 Testing the APIs
-
-DataHarbour includes a comprehensive test script to verify that all API endpoints are working correctly.
-
-### Run the API Test Suite
-
-After starting the services, run the test script:
-
-```bash
-python3 test_apis.py
-```
-
-Or make it executable and run directly:
-
-```bash
-chmod +x test_apis.py
-./test_apis.py
-```
-
-The script will:
-- Check if the API service is running
-- Test all endpoints systematically
-- Report which endpoints are working (PASS), failing (FAIL), or skipped (SKIP)
-- Provide a detailed summary at the end
-
-### Test Results Interpretation
-
-- **✅ PASS**: Endpoint is working correctly
-- **❌ FAIL**: Endpoint returned an error or is not accessible
-- **⏭️ SKIP**: Test was skipped (e.g., due to missing dependencies or prerequisites)
-
-### Custom Base URL
-
-If your API is running on a different URL, you can specify it:
-
-```bash
-python3 test_apis.py http://localhost:8080
-```
-
-## 🌐 Accessing Services
-
-Once running, you can access the following services:
-
-- **FastAPI Backend**: http://localhost:8000
-  - API Documentation: http://localhost:8000/docs
-  - Alternative Docs: http://localhost:8000/redoc
-
-- **MinIO Console**: http://localhost:9000
-  - Default credentials: minioadmin / minioadmin
-
-- **Spark Master UI**: http://localhost:8080
-
-- **PostgreSQL**: localhost:5432
-  - Default credentials: postgres / postgres
-
-## 🛑 Stopping the Platform
-
-To stop all services:
-
-```bash
-docker-compose down
-```
-
-To stop and remove all data volumes:
-
-```bash
-docker-compose down -v
-```
-
-## 📚 API Endpoints
-
-The FastAPI backend provides endpoints for:
-
-- **Storage Management**: Create buckets, upload/download files in MinIO
-- **Database Management**: Create/delete PostgreSQL databases and tables
-- **Job Submission**: Upload and manage Spark jobs
-- **Notebook Management**: CRUD operations and execution for Jupyter notebooks
-- **Data Catalog**: Browse PostgreSQL and Iceberg table metadata
-- **Cluster Monitoring**: Real-time Spark cluster status
-- **Dashboard Stats**: Summary statistics for monitoring UI
-
-## 🔧 Development
-
-### Adding New Endpoints
-
-1. Add your endpoint logic in `backend/api/routes.py`
-2. Update the test script in `test_apis.py` to include tests for new endpoints
-3. Rebuild the backend: `docker-compose build backend`
-
-### Modifying Spark Configuration
-
-Edit `spark/spark-defaults.conf` and rebuild the Spark images:
-
-```bash
-docker-compose build spark-master spark-worker
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run the test suite: `python3 test_apis.py`
-5. Submit a pull request
+---
 
 ## 📄 License
 
-This project is open source and available under the MIT License.
+MIT

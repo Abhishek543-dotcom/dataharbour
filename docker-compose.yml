@@ -1,76 +1,142 @@
+# ──────────────────────────────────────────────────────────────
+#  DataHarbour — Docker Compose (Production-Grade)
+# ──────────────────────────────────────────────────────────────
+
 services:
+
+  # ── MinIO (S3-compatible Object Storage) ──────────────────
   minio:
     image: minio/minio
+    container_name: dataharbour-minio
     ports:
       - "9000:9000"
+      - "9001:9001"
     environment:
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
     volumes:
       - ./workspace/data:/data
-    command: server /data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - dataharbour
 
+  # ── PostgreSQL (Relational Metadata Store) ────────────────
   postgres:
     image: postgres:13
+    container_name: dataharbour-postgres
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-dataharbour}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dataharbour}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - dataharbour
 
+  # ── Spark Master (Cluster Coordinator) ────────────────────
   spark-master:
     build: ./spark
+    container_name: dataharbour-spark-master
     ports:
       - "7077:7077"
       - "8080:8080"
       - "6066:6066"
     environment:
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       SPARK_MASTER_REST_ENABLED: "true"
     volumes:
       - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
       - ./workspace:/workspace
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/json/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - dataharbour
 
+  # ── Spark Worker (Executor) ───────────────────────────────
   spark-worker:
     build: ./spark
+    container_name: dataharbour-spark-worker-1
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
     environment:
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
     volumes:
       - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
       - ./workspace:/workspace
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    restart: unless-stopped
+    networks:
+      - dataharbour
 
+  # ── FastAPI Backend (REST API Gateway) ────────────────────
   fastapi:
     build: ./backend
+    container_name: dataharbour-fastapi
     ports:
       - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      spark-master:
+        condition: service_healthy
     environment:
       SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_REST_URL: http://spark-master:8080
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-dataharbour}
     volumes:
       - ./workspace:/workspace
-      - ./logs:/logs
       - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - dataharbour
 
 
 volumes:
   postgres_data:
+    driver: local
+
+
+networks:
+  dataharbour:
+    driver: bridge
+
